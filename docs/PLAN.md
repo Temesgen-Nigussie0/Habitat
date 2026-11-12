@@ -77,21 +77,22 @@
 
 ---
 
-## Phase 3 — Analytics & Profile (next)
+## Phase 3 — Analytics & Profile (Done)
 
 ### Goals
-- [ ] Analytics: heatmap with real entry data (colour cells based on daily completion %)
-- [ ] Analytics: radar chart with real pillar data (categories → axes)
-- [ ] Analytics: stat cards wired to real Dexie queries
-- [ ] Profile: edit bio/name/headline form
-- [ ] Profile: avatar photo upload (FileReader → base64 stored in IndexedDB)
-- [ ] Profile: banner photo upload
-- [ ] Profile: backup export/import UI (button triggers `exportBackup()` / file picker)
-- [ ] Streak Freeze Vault: "Freeze Day" button calls `activateStreakFreeze()`
+- [x] Analytics: 18-week SVG/grid heatmap with real entry & task `completedAt` local-date counts
+- [x] Analytics: diamond radar chart with real pillar data (Dev, Video, Academics+University, Vitality, 0% floor when empty)
+- [x] Analytics: stat cards wired to frequency-aware 7-day habit rate, tasks done, and total actions
+- [x] Analytics: Production Domains, Milestone Badges, Smart Habit Scheduler, Push Notification Test Lab
+- [x] Profile: edit bio/name/headline/occupations sheet
+- [x] Profile: avatar & banner photo crop/zoom/tilt dialog (`<canvas>` JPEG 0.8 data URL in IndexedDB)
+- [x] Profile: Lifestyle Blueprint, Quick Habit Library (20 curated 1-tap habits), Retake Onboarding (keeps data)
+- [x] Profile: backup export (Web Share API / download) & import preview/restore UI + double-confirm Erase All Data
+- [x] Streak Freeze Vault: "Freeze Day" button calls `activateStreakFreeze()` and protects streaks in `streak.ts`
 
 ---
 
-## Phase 4 — Boss Mode & Advanced
+## Phase 4 — Boss Mode & Advanced (next)
 
 ### Goals
 - [ ] Boss Mode: start challenge form (habit selection, duration, intensity, punishment text)

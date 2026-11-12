@@ -183,6 +183,9 @@ const DEFAULT_PROFILE: UserProfile = {
   streakFreezesUsed: 0,
   isComebackProtocolActive: false,
   lastFreezeDate: null,
+  smartSchedulerEnabled: true,
+  smartScheduleTimes: '{}',
+  lastExportedAt: null,
   joinedAt: Date.now(),
 }
 
@@ -313,14 +316,80 @@ export async function activateStreakFreeze(): Promise<boolean> {
   if (profile.streakFreezesAvailable <= 0) return false
 
   const today = getTodayLocal()
-  await db.transaction('rw', db.userProfile, db.streakFreezes, async () => {
-    await db.streakFreezes.add({ date: today, habitId: null, createdAt: Date.now() })
-    await upsertUserProfile({
-      streakFreezesAvailable: profile.streakFreezesAvailable - 1,
-      streakFreezesUsed: profile.streakFreezesUsed + 1,
-      lastFreezeDate: today,
-    })
-  })
+  const existingToday = await db.streakFreezes.where('date').equals(today).count()
+  if (existingToday > 0 || profile.lastFreezeDate === today) return false
+
+  await db.transaction(
+    'rw',
+    db.userProfile,
+    db.streakFreezes,
+    db.habits,
+    db.habitEntries,
+    async () => {
+      await db.streakFreezes.add({ date: today, habitId: null, createdAt: Date.now() })
+      await upsertUserProfile({
+        streakFreezesAvailable: profile.streakFreezesAvailable - 1,
+        streakFreezesUsed: profile.streakFreezesUsed + 1,
+        lastFreezeDate: today,
+      })
+      const habits = await db.habits.toArray()
+      for (const h of habits) {
+        if (!h.isArchived && h.id !== undefined) {
+          await _recalculateStreak(h.id)
+        }
+      }
+    }
+  )
   return true
+}
+
+export async function setComebackProtocolActive(active: boolean): Promise<void> {
+  await upsertUserProfile({ isComebackProtocolActive: active })
+}
+
+export async function updateSmartSchedule(
+  enabled: boolean,
+  timesMap: Record<number, string>
+): Promise<void> {
+  await upsertUserProfile({
+    smartSchedulerEnabled: enabled,
+    smartScheduleTimes: JSON.stringify(timesMap),
+  })
+}
+
+export async function updateLastExportedAt(timestamp: number): Promise<void> {
+  await upsertUserProfile({ lastExportedAt: timestamp })
+}
+
+export async function retakeOnboarding(): Promise<void> {
+  await upsertUserProfile({ isOnboardingCompleted: false })
+}
+
+export async function addQuickHabitIfNew(
+  habitInput: Omit<Habit, 'id'>
+): Promise<boolean> {
+  const existing = await db.habits.toArray()
+  const duplicate = existing.some(
+    (h) => h.name.trim().toLowerCase() === habitInput.name.trim().toLowerCase()
+  )
+  if (duplicate) return false
+  await db.habits.add(habitInput)
+  return true
+}
+
+export async function eraseAllData(): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.habits, db.habitEntries, db.tasks, db.userProfile, db.bossChallenges, db.streakFreezes],
+    async () => {
+      await db.habits.clear()
+      await db.habitEntries.clear()
+      await db.tasks.clear()
+      await db.userProfile.clear()
+      await db.bossChallenges.clear()
+      await db.streakFreezes.clear()
+      await db.userProfile.put({ ...DEFAULT_PROFILE, joinedAt: Date.now() })
+    }
+  )
 }
 

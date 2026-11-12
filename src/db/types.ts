@@ -84,6 +84,9 @@ export interface UserProfile {
   streakFreezesUsed: number
   isComebackProtocolActive: boolean
   lastFreezeDate: string | null
+  smartSchedulerEnabled?: boolean
+  smartScheduleTimes?: string
+  lastExportedAt?: number | null
   joinedAt: number
 }
 

@@ -210,7 +210,7 @@ describe('Phase 2: Tasks logic', () => {
       'Creative Studio',
     ])
 
-    expect(db.verno).toBe(2)
+    expect(db.verno).toBeGreaterThanOrEqual(2)
 
     const legacyTask: Partial<Task> = {
       id: 7,

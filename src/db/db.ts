@@ -61,6 +61,60 @@ class HabitatDB extends Dexie {
             upgradeTaskV2(task)
           })
       })
+
+    // Phase 3: add smart scheduler & lastExportedAt defaults on userProfile
+    this.version(3)
+      .stores({
+        habits:
+          '++id, isArchived, category, currentStreak, createdAt',
+
+        habitEntries:
+          '++id, [habitId+date], habitId, date, isCompleted',
+
+        tasks:
+          '++id, priority, kanbanStatus, isCompleted, dueDate, clientOrCourse, scope, createdAt',
+
+        userProfile:
+          'id',
+
+        bossChallenges:
+          '++id, isActive, isFailed, isCompleted, createdAt',
+
+        streakFreezes:
+          '++id, date, habitId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('userProfile')
+          .toCollection()
+          .modify((profile: Partial<UserProfile>) => {
+            upgradeProfileV3(profile)
+          })
+      })
+  }
+}
+
+export function upgradeProfileV3(profile: Partial<UserProfile>): void {
+  if (typeof profile.smartSchedulerEnabled !== 'boolean') {
+    profile.smartSchedulerEnabled = true
+  }
+  if (typeof profile.smartScheduleTimes !== 'string') {
+    profile.smartScheduleTimes = '{}'
+  }
+  if (profile.lastExportedAt === undefined) {
+    profile.lastExportedAt = null
+  }
+  if (typeof profile.streakFreezesAvailable !== 'number') {
+    profile.streakFreezesAvailable = 1
+  }
+  if (typeof profile.streakFreezesUsed !== 'number') {
+    profile.streakFreezesUsed = 0
+  }
+  if (typeof profile.isComebackProtocolActive !== 'boolean') {
+    profile.isComebackProtocolActive = false
+  }
+  if (profile.lastFreezeDate === undefined) {
+    profile.lastFreezeDate = null
   }
 }
 
