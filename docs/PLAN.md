@@ -64,20 +64,20 @@
 
 ---
 
-## Phase 2 — Tasks Screen (next)
+## Phase 2 — Tasks Screen (Done)
 
 ### Goals
-- [ ] Tasks screen: live Dexie data
-- [ ] Add/Edit Task dialog: all fields (title, priority, scope, workspace, due date, tags)
-- [ ] All 3 view modes: BENTO, EISENHOWER, KANBAN
-- [ ] Toggle task completion
-- [ ] Kanban drag-or-tap to change status
-- [ ] Search and filter working
-- [ ] Workspace creation
+- [x] Tasks screen: live Dexie data
+- [x] Add/Edit Task dialog: all fields (title with `"Untitled Task"` fallback if blank, priority, workspace, category, fixed/range due dates, delete confirmation)
+- [x] All 3 view modes: BENTO, EISENHOWER, KANBAN
+- [x] Toggle task completion (`SHIPPED` <-> `isCompleted` sync)
+- [x] Kanban tap to advance/move status across columns
+- [x] Search and filter working (priority, workspace, search across title/workspace/notes)
+- [x] Workspace creation persisted in `userProfile.workspaces`
 
 ---
 
-## Phase 3 — Analytics & Profile
+## Phase 3 — Analytics & Profile (next)
 
 ### Goals
 - [ ] Analytics: heatmap with real entry data (colour cells based on daily completion %)

@@ -31,8 +31,52 @@ class HabitatDB extends Dexie {
       streakFreezes:
         '++id, date, habitId',
     })
+
+    // Phase 2: index clientOrCourse & scope on tasks while preserving all existing rows
+    this.version(2)
+      .stores({
+        habits:
+          '++id, isArchived, category, currentStreak, createdAt',
+
+        habitEntries:
+          '++id, [habitId+date], habitId, date, isCompleted',
+
+        tasks:
+          '++id, priority, kanbanStatus, isCompleted, dueDate, clientOrCourse, scope, createdAt',
+
+        userProfile:
+          'id',
+
+        bossChallenges:
+          '++id, isActive, isFailed, isCompleted, createdAt',
+
+        streakFreezes:
+          '++id, date, habitId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('tasks')
+          .toCollection()
+          .modify((task: Partial<Task>) => {
+            upgradeTaskV2(task)
+          })
+      })
+  }
+}
+
+export function upgradeTaskV2(task: Partial<Task>): void {
+  if (!task.kanbanStatus) {
+    task.kanbanStatus = task.isCompleted ? 'SHIPPED' : 'TODO'
+  }
+  if (!task.scope) {
+    task.scope = 'Short-Term'
+  }
+  if (task.tags === undefined || task.tags === null) {
+    task.tags = ''
+  }
+  if (typeof task.estimatedHours !== 'number') {
+    task.estimatedHours = 1
   }
 }
 
 export const db = new HabitatDB()
-
