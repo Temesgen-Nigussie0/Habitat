@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@import "@fontsource/roboto/400.css";
+@import "@fontsource/roboto/500.css";
+@import "@fontsource/roboto/700.css";
+@import "@fontsource/roboto/900.css";
+
+@theme {
+  --color-black: #000000;
+  --color-obsidian: #070709;
+  --color-surface: #0E0E12;
+  --color-elevated: #14141A;
+  --color-card: #1B1B24;
+  --color-light: #242430;
+  --color-border: #22222E;
+  --color-highlight: #323242;
+  --color-orange: #FF6A00;
+  --color-orange-neon: #FF7A1A;
+  --color-orange-bright: #FF8C38;
+  --color-amber: #FF9F0A;
+  --color-orange-deep: #E65100;
+  --color-text-primary: #F7F7FA;
+  --color-text-secondary: #A0A0AB;
+  --color-text-tertiary: #6E6E7A;
+  --color-green: #30D158;
+  --color-red: #FF453A;
+  --color-blue: #0A84FF;
+  --color-purple: #BF5AF2;
+  --color-gold: #FFD60A;
+  --color-boss-red: #FF3B30;
+  --color-boss-crimson: #FF2D55;
+  --font-sans: Roboto, ui-sans-serif, system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #000000;
+  color: #F7F7FA;
+  font-family: Roboto, ui-sans-serif, system-ui, sans-serif;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hidden::-webkit-scrollbar { display: none; }
+.scrollbar-hidden { -ms-overflow-style: none; scrollbar-width: none; }
+
