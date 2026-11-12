@@ -25,14 +25,14 @@ export default function BottomNav() {
   return (
     <div
       className="fixed left-0 right-0 bottom-0 z-50 flex justify-center pointer-events-none"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) - 18px), 6px)' }}
     >
       <nav
-        className="pointer-events-auto flex items-center px-2 py-2 rounded-[36px] border border-border bg-elevated"
+        className="pointer-events-auto flex items-center px-2 py-1.5 rounded-[34px] border border-border bg-elevated"
         style={{
-          width: '88vw',
+          width: '92vw',
           maxWidth: 420,
-          marginBottom: 12,
+          marginBottom: 4,
         }}
       >
         {tabs.map((tab, i) => {
@@ -41,7 +41,7 @@ export default function BottomNav() {
               <div key="boss" className="flex flex-1 justify-center">
                 <button
                   onClick={() => navigate('/boss')}
-                  className="w-[60px] h-[60px] rounded-full flex items-center justify-center active:scale-95 transition-transform"
+                  className="w-[52px] h-[52px] rounded-full flex items-center justify-center active:scale-95 transition-transform"
                   style={{
                     background: 'linear-gradient(to bottom, #FF3B30, #E65100)',
                     boxShadow: isBossActive
@@ -50,7 +50,7 @@ export default function BottomNav() {
                   }}
                   aria-label="Boss Mode"
                 >
-                  <Flame size={28} color="white" fill="white" />
+                  <Flame size={25} color="white" fill="white" />
                 </button>
               </div>
             )

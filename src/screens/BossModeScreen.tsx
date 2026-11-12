@@ -1,126 +1,79 @@
-import { Flame, Shield, Zap, AlertTriangle, Trophy } from 'lucide-react'
+import { Flame, Construction } from 'lucide-react'
 import Screen from '../components/Screen'
 import SectionLabel from '../components/SectionLabel'
 
-const FEATURES = [
-  {
-    icon: Zap,
-    title: 'Extreme Accountability',
-    desc: 'Set a real punishment for failing. Make the stakes hurt.',
-    color: '#FF3B30',
-  },
-  {
-    icon: Shield,
-    title: 'Streak Protection',
-    desc: 'Use freeze shields wisely. One miss and the challenge counts it.',
-    color: '#FF3B30',
-  },
-  {
-    icon: Flame,
-    title: 'Daily Check-ins',
-    desc: 'Every habit counts every day. No excuses. No skips.',
-    color: '#FF3B30',
-  },
-  {
-    icon: Trophy,
-    title: 'Milestone Rewards',
-    desc: 'Complete the challenge and unlock Boss Conqueror status.',
-    color: '#FFD60A',
-  },
-]
+const HAZARD_TAPE_STYLE: React.CSSProperties = {
+  backgroundImage:
+    'repeating-linear-gradient(-45deg, #FFD60A 0px, #FFD60A 18px, #111115 18px, #111115 36px)',
+  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7)',
+}
 
-const DURATIONS = [
-  { days: 21, label: '21 Days', desc: 'Habit Formation' },
-  { days: 30, label: '30 Days', desc: 'The Classic' },
-  { days: 66, label: '66 Days', desc: 'Iron Will' },
-  { days: 75, label: '75 Days', desc: 'Hard Core' },
-  { days: 100, label: '100 Days', desc: 'Century' },
+const TAPES = [
+  { top: '14%', rotate: '-14deg', text: 'UNDER CONSTRUCTION • IN DEVELOPMENT • BOSS MODE' },
+  { top: '34%', rotate: '10deg', text: 'CAUTION • SECTION UNDER DEVELOPMENT • COMING SOON' },
+  { top: '58%', rotate: '-8deg', text: 'IN DEVELOPMENT • HIGH-STAKES MODE • STAY TUNED' },
+  { top: '78%', rotate: '13deg', text: 'UNDER CONSTRUCTION • BOSS MODE • WORK IN PROGRESS' },
 ]
 
 export default function BossModeScreen() {
   return (
-    <Screen>
-      <div className="px-5 pt-4 space-y-5">
-        {/* Header */}
-        <div className="flex items-center gap-3 pt-2">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center"
-            style={{ background: 'linear-gradient(to bottom, #FF3B30, #E65100)' }}
-          >
-            <Flame size={24} color="white" fill="white" />
-          </div>
-          <div>
-            <SectionLabel>HIGH STAKES MODE</SectionLabel>
-            <h1 className="text-[26px] font-bold text-text-primary leading-tight mt-0.5">
-              Boss Mode
-            </h1>
-          </div>
+    <Screen className="overflow-hidden">
+      <div className="relative min-h-full flex flex-col justify-center items-center px-6 py-12 overflow-hidden">
+        {/* Subtle dimmed background silhouette */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none">
+          <Flame size={220} color="#FF3B30" fill="#FF3B30" />
         </div>
 
-        {/* No active challenge card */}
+        {/* 4 Yellow & Black Construction Hazard Tapes */}
+        {TAPES.map((tape, idx) => (
+          <div
+            key={idx}
+            aria-hidden
+            className="pointer-events-none absolute left-[-15%] right-[-15%] h-11 flex items-center justify-center border-y-2 border-black/80"
+            style={{
+              ...HAZARD_TAPE_STYLE,
+              top: tape.top,
+              transform: `rotate(${tape.rotate})`,
+              zIndex: idx % 2 === 0 ? 10 : 20,
+            }}
+          >
+            <span className="px-3 py-0.5 rounded bg-black/90 text-gold text-[11px] font-black tracking-[0.14em] uppercase whitespace-nowrap">
+              {tape.text}
+            </span>
+          </div>
+        ))}
+
+        {/* Center Info Card */}
         <div
-          className="rounded-[28px] border p-6 text-center space-y-3"
-          style={{ backgroundColor: '#1B1B24', borderColor: 'rgba(255,59,48,0.3)' }}
+          className="relative z-30 w-full max-w-[330px] rounded-[28px] border p-6 text-center space-y-3.5"
+          style={{
+            backgroundColor: 'rgba(14, 14, 18, 0.94)',
+            borderColor: 'rgba(255, 214, 10, 0.55)',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.85)',
+          }}
         >
-          <AlertTriangle size={36} color="#FF3B30" className="mx-auto" />
-          <p className="text-text-primary font-bold text-lg">No Active Challenge</p>
+          <div
+            className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center border"
+            style={{
+              backgroundColor: 'rgba(255, 214, 10, 0.14)',
+              borderColor: 'rgba(255, 214, 10, 0.45)',
+            }}
+          >
+            <Construction size={28} color="#FFD60A" />
+          </div>
+
+          <SectionLabel className="block">BOSS MODE</SectionLabel>
+
+          <h1 className="text-[22px] font-extrabold text-text-primary leading-tight">
+            Under Construction
+          </h1>
+
           <p className="text-text-secondary text-sm leading-relaxed">
-            Boss Mode is a high-stakes accountability system. Set a challenge with real
-            consequences — commit, or don't start.
+            This section is currently in development. High-stakes challenges, streak wagers, and
+            accountability protocols are being forged for an upcoming update.
           </p>
         </div>
-
-        {/* Feature list */}
-        <div className="space-y-3">
-          {FEATURES.map(({ icon: Icon, title, desc, color }) => (
-            <div
-              key={title}
-              className="rounded-[20px] border p-4 flex gap-3 items-start"
-              style={{ backgroundColor: '#14141A', borderColor: '#22222E' }}
-            >
-              <div
-                className="w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0 border"
-                style={{
-                  backgroundColor: color + '1A',
-                  borderColor: color + '44',
-                }}
-              >
-                <Icon size={18} color={color} />
-              </div>
-              <div>
-                <p className="text-text-primary font-semibold text-sm">{title}</p>
-                <p className="text-text-tertiary text-xs mt-0.5 leading-relaxed">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Duration chips */}
-        <div>
-          <SectionLabel className="mb-3 block">CHALLENGE DURATIONS</SectionLabel>
-          <div className="flex gap-2 flex-wrap">
-            {DURATIONS.map(({ days, label, desc }) => (
-              <div
-                key={days}
-                className="flex flex-col items-center px-4 py-2.5 rounded-[16px] border"
-                style={{ backgroundColor: '#14141A', borderColor: '#22222E' }}
-              >
-                <span className="text-text-primary text-sm font-bold">{label}</span>
-                <span className="text-text-tertiary text-[10px]">{desc}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA button */}
-        <button
-          className="w-full py-4 rounded-[20px] font-bold text-white text-base"
-          style={{ background: 'linear-gradient(to right, #FF3B30, #FF6A00)' }}
-        >
-          🔥  Start a Challenge
-        </button>
       </div>
     </Screen>
   )
 }
-
