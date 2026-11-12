@@ -9,14 +9,14 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['apple-touch-icon.png', 'icons/*.png'],
       manifest: {
         name: 'Habitat',
         short_name: 'Habitat',
         description: 'Your habit and task tracker — offline-first PWA',
         theme_color: '#070709',
-        background_color: '#000000',
+        background_color: '#070709',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
@@ -41,6 +41,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {

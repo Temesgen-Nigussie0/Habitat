@@ -23,6 +23,7 @@ import DataBackupSection from '../components/DataBackupSection'
 import EditBioSheet from '../components/EditBioSheet'
 import ImageAdjustmentDialog from '../components/ImageAdjustmentDialog'
 import {
+  useAllEntries,
   useAllHabits,
   useHabits,
   useStreakFreezes,
@@ -36,7 +37,12 @@ import {
   setComebackProtocolActive,
   upsertUserProfile,
 } from '../db/actions'
+import {
+  dismissBackupNudgeFor7Days,
+  shouldShowBackupNudge,
+} from '../lib/backup'
 import { getTodayLocal } from '../lib/streak'
+import pkg from '../../package.json'
 
 function getOccupationIcon(occ: string) {
   const lower = occ.toLowerCase()
@@ -72,11 +78,13 @@ export default function ProfileScreen() {
   const profile = useUserProfile()
   const activeHabits = useHabits()
   const allHabits = useAllHabits()
+  const allEntries = useAllEntries()
   const tasks = useTasks()
   const streakFreezes = useStreakFreezes()
 
   const [editBioOpen, setEditBioOpen] = useState(false)
   const [retakeConfirmOpen, setRetakeConfirmOpen] = useState(false)
+  const [nudgeDismissed, setNudgeDismissed] = useState(false)
   const [cropState, setCropState] = useState<{
     src: string
     mode: 'avatar' | 'banner'
@@ -395,8 +403,29 @@ export default function ProfileScreen() {
         <div className="mt-6">
           <DataBackupSection
             lastExportedAt={profile?.lastExportedAt}
+            showNudge={
+              !nudgeDismissed &&
+              shouldShowBackupNudge(
+                profile,
+                (allEntries ?? []).filter((e) => e.isCompleted).length
+              )
+            }
+            onDismissNudge={() => {
+              dismissBackupNudgeFor7Days()
+              setNudgeDismissed(true)
+            }}
             onNotify={(msg) => setToastMsg(msg)}
           />
+        </div>
+
+        {/* 9. About Habitat */}
+        <div className="mt-6 pb-4 text-center">
+          <p className="text-[12px] font-semibold text-[#8E8E93]">
+            About Habitat · v{pkg.version}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[#6E6E7A]">
+            Your data stays on this phone.
+          </p>
         </div>
       </div>
 

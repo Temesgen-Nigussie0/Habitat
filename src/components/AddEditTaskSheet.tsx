@@ -157,10 +157,7 @@ export function AddEditTaskSheet({
             </div>
 
             {/* Scrollable Body */}
-            <form
-              onSubmit={handleSubmit}
-              className="flex-1 overflow-y-auto px-5 py-4 space-y-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]"
-            >
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               {/* Title */}
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wider text-[#8E8E93]">
@@ -350,10 +347,14 @@ export function AddEditTaskSheet({
                 )}
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-col gap-2.5 pt-2">
+            </div>
+
+            {/* Sticky Actions Footer */}
+            <div className="border-t border-[#242428] bg-[#161618] px-5 py-3.5 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+              <div className="flex flex-col gap-2.5">
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmit}
                   disabled={isSaving}
                   className="min-h-[50px] w-full rounded-[16px] bg-[#FF6A00] text-[15px] font-bold text-white shadow-lg shadow-[#FF6A00]/25 active:scale-[0.98] disabled:opacity-50"
                 >
@@ -387,7 +388,7 @@ export function AddEditTaskSheet({
                   </div>
                 )}
               </div>
-            </form>
+            </div>
           </motion.div>
         </div>
       )}

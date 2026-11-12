@@ -236,7 +236,7 @@ describe('Phase 3: Analytics & Profile', () => {
   })
 
   it('round-trips backup export -> preview -> restore and upgrades v3 profiles', async () => {
-    expect(db.verno).toBe(3)
+    expect(db.verno).toBeGreaterThanOrEqual(3)
 
     const legacyProfile: Partial<UserProfile> = {
       id: 1,
@@ -281,7 +281,7 @@ describe('Phase 3: Analytics & Profile', () => {
     const tasksPut = vi.spyOn(db.tasks, 'bulkPut').mockResolvedValue(2 as never)
     const profilePut = vi.spyOn(db.userProfile, 'bulkPut').mockResolvedValue(1 as never)
 
-    await restoreBackupData(preview.data)
+    await restoreBackupData(preview.data, { saveSnapshot: false })
     expect(habitsClear).toHaveBeenCalled()
     expect(habitsPut).toHaveBeenCalledWith(sampleHabits)
     expect(tasksPut).toHaveBeenCalledWith(sampleTasks)

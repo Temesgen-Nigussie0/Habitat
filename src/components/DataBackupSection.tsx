@@ -1,21 +1,33 @@
-import { useRef, useState } from 'react'
-import { Download, Trash2, Upload } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Download, HardDrive, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   exportBackup,
+  hasUndoBackup,
   parseBackupPreview,
   restoreBackupData,
+  undoLastImport,
   type BackupPreview,
 } from '../lib/backup'
 import { eraseAllData } from '../db/actions'
 
 interface DataBackupSectionProps {
   lastExportedAt?: number | null
+  showNudge?: boolean
+  onDismissNudge?: () => void
   onNotify: (msg: string) => void
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
 export default function DataBackupSection({
   lastExportedAt,
+  showNudge = false,
+  onDismissNudge,
   onNotify,
 }: DataBackupSectionProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -23,6 +35,33 @@ export default function DataBackupSection({
   const [importError, setImportError] = useState<string | null>(null)
   const [eraseStep, setEraseStep] = useState<0 | 1 | 2>(0)
   const [busy, setBusy] = useState(false)
+  const [undoAvailable, setUndoAvailable] = useState(false)
+  const [storageInfo, setStorageInfo] = useState<{
+    persisted: boolean | null
+    usageBytes: number | null
+  }>({ persisted: null, usageBytes: null })
+
+  const refreshMeta = async () => {
+    setUndoAvailable(await hasUndoBackup())
+    try {
+      const persisted = navigator.storage?.persisted
+        ? await navigator.storage.persisted()
+        : null
+      const estimate = navigator.storage?.estimate
+        ? await navigator.storage.estimate()
+        : null
+      setStorageInfo({
+        persisted,
+        usageBytes: typeof estimate?.usage === 'number' ? estimate.usage : null,
+      })
+    } catch {
+      // Storage API unavailable
+    }
+  }
+
+  useEffect(() => {
+    void refreshMeta()
+  }, [])
 
   const handleExport = async () => {
     if (busy) return
@@ -47,7 +86,7 @@ export default function DataBackupSection({
       setPreview(parsed)
     } catch (err) {
       setImportError(
-        err instanceof Error ? err.message : 'Invalid backup JSON file'
+        err instanceof Error ? err.message : 'This file is not a valid Habitat backup.'
       )
     }
   }
@@ -58,7 +97,22 @@ export default function DataBackupSection({
     try {
       await restoreBackupData(preview.data)
       setPreview(null)
+      await refreshMeta()
       onNotify('Backup restored')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleUndo = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const restored = await undoLastImport()
+      await refreshMeta()
+      if (restored) {
+        onNotify('Previous data restored')
+      }
     } finally {
       setBusy(false)
     }
@@ -73,6 +127,7 @@ export default function DataBackupSection({
     try {
       await eraseAllData()
       setEraseStep(0)
+      await refreshMeta()
       onNotify('All data erased')
     } finally {
       setBusy(false)
@@ -85,7 +140,61 @@ export default function DataBackupSection({
         YOUR DATA
       </p>
 
+      {/* Backup Nudge Card */}
+      {showNudge && (
+        <div className="mt-2.5 flex items-center justify-between gap-2.5 rounded-[18px] border border-[#FF9F0A]/45 bg-[#FF9F0A]/10 p-3.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-bold text-[#F5F5F7]">
+              Back up your data
+            </p>
+            <p className="mt-0.5 text-[11px] text-[#A1A1AA]">
+              Save a copy to Files so you never lose your streak history.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleExport}
+              className="min-h-[38px] rounded-[10px] bg-[#FF6A00] px-3 text-[12px] font-bold text-white active:scale-95"
+            >
+              Export
+            </button>
+            {onDismissNudge && (
+              <button
+                type="button"
+                aria-label="Dismiss backup nudge"
+                onClick={onDismissNudge}
+                className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-[#2C2C30] bg-[#161618] text-[#8E8E93]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mt-2.5 rounded-[20px] border border-[#242428] bg-[#161618] p-4">
+        {/* Storage Status */}
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-[14px] border border-[#242428] bg-[#0D0D0E] px-3.5 py-2.5">
+          <div className="flex items-center gap-2">
+            <HardDrive className="h-4 w-4 shrink-0 text-[#FF6A00]" />
+            <span className="text-[12px] font-semibold text-[#F5F5F7]">
+              Storage
+            </span>
+          </div>
+          <span className="text-[11px] text-[#A1A1AA]">
+            {storageInfo.persisted === null
+              ? 'Local'
+              : storageInfo.persisted
+                ? 'Persistent'
+                : 'Best-effort'}
+            {storageInfo.usageBytes !== null
+              ? ` · ${formatBytes(storageInfo.usageBytes)} used`
+              : ''}
+          </span>
+        </div>
+
         <p className="text-[12px] leading-relaxed text-[#A1A1AA]">
           Your data lives only on this phone. Export a backup anytime to save a
           copy to Files.
@@ -127,6 +236,18 @@ export default function DataBackupSection({
           />
         </div>
 
+        {undoAvailable && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleUndo}
+            className="mt-2.5 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[14px] border border-[#0A84FF]/40 bg-[#0A84FF]/10 text-[13px] font-semibold text-[#0A84FF] active:scale-95"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Undo last import
+          </button>
+        )}
+
         {importError && (
           <p className="mt-2.5 text-[12px] font-medium text-[#FF453A]">
             {importError}
@@ -147,7 +268,7 @@ export default function DataBackupSection({
               <button
                 type="button"
                 onClick={() => setPreview(null)}
-                className="min-h-[40px] flex-1 rounded-[12px] border border-[#2C2C30] bg-[#161618] text-[12px] font-semibold text-[#A1A1AA]"
+                className="min-h-[44px] flex-1 rounded-[12px] border border-[#2C2C30] bg-[#161618] text-[12px] font-semibold text-[#A1A1AA]"
               >
                 Cancel
               </button>
@@ -155,7 +276,7 @@ export default function DataBackupSection({
                 type="button"
                 disabled={busy}
                 onClick={handleConfirmImport}
-                className="min-h-[40px] flex-1 rounded-[12px] bg-[#FF6A00] text-[12px] font-bold text-white"
+                className="min-h-[44px] flex-1 rounded-[12px] bg-[#FF6A00] text-[12px] font-bold text-white"
               >
                 Confirm Restore
               </button>
@@ -170,7 +291,7 @@ export default function DataBackupSection({
               <button
                 type="button"
                 onClick={() => setEraseStep(0)}
-                className="min-h-[42px] flex-1 rounded-[12px] border border-[#2C2C30] bg-[#0D0D0E] text-[12px] font-semibold text-[#A1A1AA]"
+                className="min-h-[44px] flex-1 rounded-[12px] border border-[#2C2C30] bg-[#0D0D0E] text-[12px] font-semibold text-[#A1A1AA]"
               >
                 Cancel
               </button>
@@ -179,7 +300,7 @@ export default function DataBackupSection({
               type="button"
               disabled={busy}
               onClick={handleErase}
-              className={`flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-[12px] border text-[12px] font-bold ${
+              className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[12px] border text-[12px] font-bold ${
                 eraseStep === 2
                   ? 'border-[#FF453A] bg-[#FF453A] text-white'
                   : 'border-[#FF453A]/40 bg-[#FF453A]/10 text-[#FF453A]'
@@ -198,4 +319,3 @@ export default function DataBackupSection({
     </div>
   )
 }
-

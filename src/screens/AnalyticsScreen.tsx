@@ -7,7 +7,13 @@ import {
   Flame,
   GraduationCap,
   TrendingUp,
+  X,
 } from 'lucide-react'
+import {
+  dismissBackupNudgeFor7Days,
+  exportBackup,
+  shouldShowBackupNudge,
+} from '../lib/backup'
 import Screen from '../components/Screen'
 import ProgressBar from '../components/ProgressBar'
 import StreakHeatmap from '../components/StreakHeatmap'
@@ -63,6 +69,7 @@ export default function AnalyticsScreen() {
   const streakFreezes = useStreakFreezes()
 
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [nudgeDismissed, setNudgeDismissed] = useState(false)
 
   useEffect(() => {
     if (!toastMsg) return
@@ -152,9 +159,53 @@ export default function AnalyticsScreen() {
         </h1>
       </div>
 
+      {/* Gentle Backup Nudge */}
+      {!isLoading &&
+        !nudgeDismissed &&
+        shouldShowBackupNudge(
+          profile,
+          entryList.filter((e) => e.isCompleted).length
+        ) && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-[14px] border border-[#FF9F0A]/45 bg-[#FF9F0A]/10 px-3.5 py-2">
+            <span className="text-[12px] font-semibold text-[#F5F5F7]">
+              Back up your data
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  void exportBackup().then(() =>
+                    setToastMsg('Backup exported successfully')
+                  )
+                }}
+                className="min-h-[34px] rounded-[8px] bg-[#FF6A00] px-2.5 text-[11px] font-bold text-white"
+              >
+                Export
+              </button>
+              <button
+                type="button"
+                aria-label="Dismiss backup nudge"
+                onClick={() => {
+                  dismissBackupNudgeFor7Days()
+                  setNudgeDismissed(true)
+                }}
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-[8px] text-[#8E8E93]"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
       {isLoading ? (
-        <div className="mt-10 flex items-center justify-center py-12 text-[14px] text-[#8E8E93]">
-          Loading analytics...
+        <div className="mt-4 flex flex-col gap-4 animate-pulse">
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="h-24 rounded-[18px] bg-[#161618]" />
+            <div className="h-24 rounded-[18px] bg-[#161618]" />
+            <div className="h-24 rounded-[18px] bg-[#161618]" />
+          </div>
+          <div className="h-44 rounded-[22px] bg-[#161618]" />
+          <div className="h-64 rounded-[22px] bg-[#161618]" />
         </div>
       ) : (
         <div className="mt-4 flex flex-col gap-5">

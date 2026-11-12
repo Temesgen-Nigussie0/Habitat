@@ -1,6 +1,12 @@
 import Dexie, { type Table } from 'dexie'
 import type { Habit, HabitEntry, Task, UserProfile, BossChallenge, StreakFreeze } from './types'
 
+export interface MetaEntry {
+  key: string
+  value: string
+  updatedAt: number
+}
+
 class HabitatDB extends Dexie {
   habits!: Table<Habit, number>
   habitEntries!: Table<HabitEntry, number>
@@ -8,6 +14,7 @@ class HabitatDB extends Dexie {
   userProfile!: Table<UserProfile, number>
   bossChallenges!: Table<BossChallenge, number>
   streakFreezes!: Table<StreakFreeze, number>
+  meta!: Table<MetaEntry, string>
 
   constructor() {
     super('HabitatDB')
@@ -91,6 +98,30 @@ class HabitatDB extends Dexie {
             upgradeProfileV3(profile)
           })
       })
+
+    // Phase 4: add meta key-value store for safety snapshots (lastBeforeRestore)
+    this.version(4).stores({
+      habits:
+        '++id, isArchived, category, currentStreak, createdAt',
+
+      habitEntries:
+        '++id, [habitId+date], habitId, date, isCompleted',
+
+      tasks:
+        '++id, priority, kanbanStatus, isCompleted, dueDate, clientOrCourse, scope, createdAt',
+
+      userProfile:
+        'id',
+
+      bossChallenges:
+        '++id, isActive, isFailed, isCompleted, createdAt',
+
+      streakFreezes:
+        '++id, date, habitId',
+
+      meta:
+        'key',
+    })
   }
 }
 

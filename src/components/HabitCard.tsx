@@ -142,6 +142,7 @@ export default function HabitCard({
         onPointerCancel={() => finishPointer(true)}
         className="relative rounded-[20px] border p-4 select-none"
         style={{
+          WebkitTouchCallout: 'none',
           touchAction: 'pan-y',
           backgroundColor: '#1B1B24',
           borderColor: isCompleted ? 'rgba(255,106,0,0.45)' : '#22222E',

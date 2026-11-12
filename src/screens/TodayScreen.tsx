@@ -64,9 +64,8 @@ export default function TodayScreen() {
   // Current week Mon–Sun in local time
   const weekDays = useMemo(() => {
     const now = new Date()
-    const monday = startOfWeek(now, { weekStartsOn: 1 })
     return Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(monday, i)
+      const d = addDays(now, i)
       const dateStr = formatLocalDate(d)
       return {
         dateStr,

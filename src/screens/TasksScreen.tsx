@@ -145,7 +145,24 @@ export default function TasksScreen() {
   )
 
   const monthDays = useMemo(() => {
+    const isCurrentMonth =
+      selectedYear === now.getFullYear() && selectedMonth === now.getMonth()
     const count = getDaysInMonth(new Date(selectedYear, selectedMonth, 1))
+
+    if (isCurrentMonth) {
+      const todayDayNum = now.getDate()
+      const daysLeft = count - todayDayNum + 1
+      return Array.from({ length: daysLeft }, (_, idx) => {
+        const dayNum = todayDayNum + idx
+        const date = new Date(selectedYear, selectedMonth, dayNum)
+        return {
+          dateStr: formatLocalDate(date),
+          dayNum,
+          weekday: format(date, 'EEE'),
+        }
+      })
+    }
+
     return Array.from({ length: count }, (_, idx) => {
       const date = new Date(selectedYear, selectedMonth, idx + 1)
       return {
@@ -154,7 +171,7 @@ export default function TasksScreen() {
         weekday: format(date, 'EEE'),
       }
     })
-  }, [selectedYear, selectedMonth])
+  }, [selectedYear, selectedMonth, now])
 
   const allTasks = tasks ?? []
 
@@ -274,7 +291,7 @@ export default function TasksScreen() {
     : mediumTasks.slice(0, 4)
 
   return (
-    <Screen className="pb-28">
+    <Screen noNav={addEditOpen} className="px-4 pb-28">
       {/* Toast for Alert chip */}
       {toastMsg && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#FF453A]/50 bg-[#1C1C20] px-4 py-2 text-[13px] font-semibold text-[#F5F5F7] shadow-xl">

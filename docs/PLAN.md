@@ -92,17 +92,15 @@
 
 ---
 
-## Phase 4 — Boss Mode & Advanced (next)
+## Phase 4 — Polish, Safety & Install Quality (Done — Boss Mode postponed)
 
 ### Goals
-- [ ] Boss Mode: start challenge form (habit selection, duration, intensity, punishment text)
-- [ ] Boss Mode: active challenge dashboard (day counter, completion status, quit button)
-- [ ] Boss Mode: failure screen with quit reason
-- [ ] Boss Mode: completion celebration
-- [ ] Milestone badges (Boss Conqueror, Iron Will 66, Century Master)
-- [ ] Smart Habit Scheduler UI (pattern-based suggested times)
-- [ ] Comeback Protocol (flag in profile, special messaging)
-- [ ] Notifications (PWA push or local notification on mobile — where available)
+- [x] Install quality: manifest `#070709`, iOS dark splash (`html, body` `#070709`), `touch-action: manipulation`, `maximum-scale=1`
+- [x] Safe updates: `registerType: 'prompt'` + `cleanupOutdatedCaches: true` + `"New version ready · Tap to update"` banner
+- [x] Data safety: Storage status (`persisted()` + `estimate()`), 14-day backup nudge, `lastBeforeRestore` safety snapshot + `"Undo last import"`, strict import validation
+- [x] Robustness: Per-screen `ScreenErrorBoundary` (`"Reload screen"` + `"Export backup"`), IndexedDB blocked notice, date edge tests
+- [x] UX & Touch audit: `44px` tap targets, `16px` inputs, `-webkit-touch-callout: none`, loading skeletons, `"About Habitat"` footer
+- [ ] Boss Mode (postponed — Under Construction screen kept as-is)
 
 ---
 

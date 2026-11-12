@@ -65,16 +65,18 @@ export default function BottomNav() {
               style={{ minHeight: 44 }}
             >
               <Icon
-                size={22}
+                size={active ? 24 : 22}
                 color={active ? '#FF6A00' : '#6E6E7A'}
-                strokeWidth={active ? 2.2 : 1.8}
+                strokeWidth={active ? 2.4 : 1.8}
               />
-              <span
-                className="text-[10px] font-medium"
-                style={{ color: active ? '#FF6A00' : '#6E6E7A' }}
-              >
-                {tab.label}
-              </span>
+              {!active && (
+                <span
+                  className="text-[10px] font-medium"
+                  style={{ color: '#6E6E7A' }}
+                >
+                  {tab.label}
+                </span>
+              )}
             </button>
           )
         })}

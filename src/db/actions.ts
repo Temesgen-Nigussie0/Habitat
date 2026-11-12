@@ -378,6 +378,9 @@ export async function addQuickHabitIfNew(
 }
 
 export async function eraseAllData(): Promise<void> {
+  const { saveBeforeRestoreSnapshot } = await import('../lib/backup')
+  await saveBeforeRestoreSnapshot()
+
   await db.transaction(
     'rw',
     [db.habits, db.habitEntries, db.tasks, db.userProfile, db.bossChallenges, db.streakFreezes],
