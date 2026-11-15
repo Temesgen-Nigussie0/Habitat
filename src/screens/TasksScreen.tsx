@@ -39,7 +39,12 @@ import {
   type TaskPriorityFilter,
   type TaskViewMode,
 } from '../lib/tasks'
-import { formatLocalDate, getTodayLocal } from '../lib/streak'
+import {
+  formatLocalDate,
+  getAppStartDate,
+  getTodayLocal,
+  parseLocalDate,
+} from '../lib/streak'
 
 const MONTH_NAMES = [
   'January',
@@ -150,10 +155,14 @@ export default function TasksScreen() {
     const count = getDaysInMonth(new Date(selectedYear, selectedMonth, 1))
 
     if (isCurrentMonth) {
-      const todayDayNum = now.getDate()
-      const daysLeft = count - todayDayNum + 1
+      const appStartDate = getAppStartDate(profile?.joinedAt)
+      const currentYearMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`
+      const startDayNum = appStartDate.startsWith(currentYearMonth)
+        ? parseLocalDate(appStartDate).getDate()
+        : 1
+      const daysLeft = count - startDayNum + 1
       return Array.from({ length: daysLeft }, (_, idx) => {
-        const dayNum = todayDayNum + idx
+        const dayNum = startDayNum + idx
         const date = new Date(selectedYear, selectedMonth, dayNum)
         return {
           dateStr: formatLocalDate(date),

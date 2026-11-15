@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   X,
 } from 'lucide-react'
-import { startOfWeek, addDays, format } from 'date-fns'
+import { startOfWeek, addDays, differenceInCalendarDays, format } from 'date-fns'
 import Screen from '../components/Screen'
 import SectionLabel from '../components/SectionLabel'
 import ProgressBar from '../components/ProgressBar'
@@ -26,7 +26,13 @@ import {
   useUserProfile,
 } from '../db/hooks'
 import { toggleHabitCompletion, incrementHabitCounter } from '../db/actions'
-import { formatLocalDate, getTodayLocal, isHabitScheduledOn } from '../lib/streak'
+import {
+  formatLocalDate,
+  getAppStartDate,
+  getTodayLocal,
+  isHabitScheduledOn,
+  parseLocalDate,
+} from '../lib/streak'
 import { getDailyCompletionPercent, isFuture } from '../lib/stats'
 import type { Habit } from '../db/types'
 
@@ -52,6 +58,7 @@ export default function TodayScreen() {
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
   const prevDoneRef = useRef<number | null>(null)
+  const selectedDayRef = useRef<HTMLButtonElement | null>(null)
 
   const profile = useUserProfile()
   const habits = useHabits()
@@ -61,11 +68,25 @@ export default function TodayScreen() {
   const isLoading = habits === undefined || entriesForDate === undefined
   const isLocked = isFuture(selectedDate)
 
-  // Current week Mon–Sun in local time
+  const earliestEntryDate = useMemo(() => {
+    if (!allEntries || allEntries.length === 0) return null
+    const dates = allEntries.map((e) => e.date).filter(Boolean).sort()
+    return dates[0] || null
+  }, [allEntries])
+
+  const appStartDate = useMemo(() => {
+    return getAppStartDate(profile?.joinedAt, earliestEntryDate)
+  }, [profile?.joinedAt, earliestEntryDate])
+
+  // Days starting from the day user started the app up to 6 days after today (future locked)
   const weekDays = useMemo(() => {
-    const now = new Date()
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(now, i)
+    const startD = parseLocalDate(appStartDate)
+    const todayD = parseLocalDate(todayStr)
+    const diffDays = Math.max(0, differenceInCalendarDays(todayD, startD))
+    const totalDays = diffDays + 1 + 6
+
+    return Array.from({ length: totalDays }, (_, i) => {
+      const d = addDays(startD, i)
       const dateStr = formatLocalDate(d)
       return {
         dateStr,
@@ -76,7 +97,17 @@ export default function TodayScreen() {
         isFuture: isFuture(dateStr),
       }
     })
-  }, [todayStr, selectedDate])
+  }, [appStartDate, todayStr, selectedDate])
+
+  useEffect(() => {
+    if (selectedDayRef.current) {
+      selectedDayRef.current.scrollIntoView({
+        inline: 'center',
+        block: 'nearest',
+        behavior: 'smooth',
+      })
+    }
+  }, [selectedDate])
 
   const entryMap = useMemo(() => {
     return new Map((entriesForDate ?? []).map((e) => [e.habitId, e]))
@@ -321,12 +352,13 @@ export default function TodayScreen() {
         </div>
 
         {/* Week Strip */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           {weekDays.map((d) => {
             const selected = d.isSelected
             return (
               <button
                 key={d.dateStr}
+                ref={selected ? selectedDayRef : undefined}
                 type="button"
                 onClick={() => {
                   if (d.isFuture) {
@@ -336,7 +368,7 @@ export default function TodayScreen() {
                   }
                 }}
                 aria-label={d.isFuture ? `${d.dateStr} locked` : d.dateStr}
-                className="flex-1 flex flex-col items-center justify-center rounded-[14px] border py-2 gap-0.5 transition-colors"
+                className="min-w-[46px] flex-1 flex flex-col items-center justify-center rounded-[14px] border py-2 gap-0.5 transition-colors shrink-0"
                 style={{
                   backgroundColor: selected ? '#FF6A00' : '#14141A',
                   borderColor: selected

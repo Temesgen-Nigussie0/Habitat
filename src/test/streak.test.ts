@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import {
   calculateStreak,
+  getAppStartDate,
   getTodayLocal,
   formatLocalDate,
   isHabitScheduledOn,
@@ -327,5 +328,29 @@ describe('getCounterDisplay', () => {
   test('boolean habit completed shows checkmark', () => {
     const e: HabitEntry = { ...makeEntry(1, true), targetCount: 1 }
     expect(getCounterDisplay(e, 1)).toBe('✓')
+  })
+})
+
+// ─── getAppStartDate ──────────────────────────────────────────────────────────
+describe('getAppStartDate', () => {
+  test('returns joinedAt formatted date if earliest', () => {
+    localStorage.removeItem('habitat_app_start_date')
+    const timestamp = new Date('2026-11-15T10:00:00').getTime()
+    const startDate = getAppStartDate(timestamp, null)
+    expect(startDate).toBe('2026-11-15')
+    expect(localStorage.getItem('habitat_app_start_date')).toBe('2026-11-15')
+  })
+
+  test('preserves stored start date when days pass', () => {
+    localStorage.setItem('habitat_app_start_date', '2026-11-15')
+    const laterTimestamp = new Date('2026-11-18T10:00:00').getTime()
+    const startDate = getAppStartDate(laterTimestamp, null)
+    expect(startDate).toBe('2026-11-15')
+  })
+
+  test('picks earlier entry date if present', () => {
+    localStorage.setItem('habitat_app_start_date', '2026-11-16')
+    const startDate = getAppStartDate(null, '2026-11-15')
+    expect(startDate).toBe('2026-11-15')
   })
 })

@@ -40,6 +40,50 @@ export function offsetDate(dateStr: string, days: number): string {
   return formatLocalDate(d)
 }
 
+const APP_START_DATE_KEY = 'habitat_app_start_date'
+
+/**
+ * Returns the local date string ('yyyy-MM-dd') when the user first started the app.
+ * Persists in localStorage so past days from day 1 are preserved indefinitely.
+ */
+export function getAppStartDate(
+  joinedAtTimestamp?: number | null,
+  earliestEntryDate?: string | null
+): string {
+  const today = getTodayLocal()
+  const stored = typeof window !== 'undefined' ? localStorage.getItem(APP_START_DATE_KEY) : null
+
+  const candidates: string[] = []
+  if (stored && /^\d{4}-\d{2}-\d{2}$/.test(stored)) {
+    candidates.push(stored)
+  }
+  if (joinedAtTimestamp && Number.isFinite(joinedAtTimestamp)) {
+    candidates.push(formatLocalDate(new Date(joinedAtTimestamp)))
+  }
+  if (earliestEntryDate && /^\d{4}-\d{2}-\d{2}$/.test(earliestEntryDate)) {
+    candidates.push(earliestEntryDate)
+  }
+  if (candidates.length === 0) {
+    candidates.push(today)
+  }
+
+  candidates.sort()
+  let earliest = candidates[0]
+  if (earliest > today) {
+    earliest = today
+  }
+
+  if (typeof window !== 'undefined' && stored !== earliest) {
+    try {
+      localStorage.setItem(APP_START_DATE_KEY, earliest)
+    } catch {
+      // ignore
+    }
+  }
+
+  return earliest
+}
+
 /**
  * Returns true if the habit is scheduled on the given date string.
  * @param dateStr  Local yyyy-MM-dd
