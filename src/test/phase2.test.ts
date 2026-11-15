@@ -229,5 +229,17 @@ describe('Phase 2: Tasks logic', () => {
     expect(legacyTask.tags).toBe('')
     expect(legacyTask.estimatedHours).toBe(1)
   })
+
+  it('filters tasks by workspace case-insensitively and respects ALL/All', () => {
+    const tasks = [
+      makeTask({ id: 1, title: 'Personal', clientOrCourse: 'Personal Workspace' }),
+      makeTask({ id: 2, title: 'Client', clientOrCourse: 'Client Work' }),
+    ]
+    expect(filterAndSortTasks(tasks, { workspaceFilter: 'ALL' })).toHaveLength(2)
+    expect(filterAndSortTasks(tasks, { workspaceFilter: 'All' })).toHaveLength(2)
+    expect(filterAndSortTasks(tasks, { workspaceFilter: 'all' })).toHaveLength(2)
+    expect(filterAndSortTasks(tasks, { workspaceFilter: 'Client Work' })).toHaveLength(1)
+    expect(filterAndSortTasks(tasks, { workspaceFilter: 'client work' })).toHaveLength(1)
+  })
 })
 

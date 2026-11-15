@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlarmClock, BellRing, Check, Flame, Shield, Sparkles } from 'lucide-react'
+import { AlarmClock, BellRing, Check, Flame, Shield, Sparkles, Smartphone } from 'lucide-react'
 import type { SmartHabitSuggestion } from '../lib/analytics'
+import {
+  getNotificationStatus,
+  requestAppNotificationPermission,
+  sendNativeNotification,
+} from '../lib/notifications'
 
 interface SmartSchedulerCardProps {
   suggestions: SmartHabitSuggestion[]
@@ -20,6 +25,8 @@ export default function SmartSchedulerCard({
   const [isActive, setIsActive] = useState(enabled)
   const [timesMap, setTimesMap] = useState<Record<number, string>>({})
   const [savedFeedback, setSavedFeedback] = useState(false)
+  const [notifNotice, setNotifNotice] = useState<string | null>(null)
+  const notifStatus = getNotificationStatus()
 
   useEffect(() => {
     setIsActive(enabled)
@@ -37,7 +44,12 @@ export default function SmartSchedulerCard({
     const next = !isActive
     setIsActive(next)
     setSavedFeedback(false)
+    setNotifNotice(null)
     await onSaveSchedule(next, timesMap)
+    if (next) {
+      const res = await requestAppNotificationPermission()
+      if (res.message) setNotifNotice(res.message)
+    }
   }
 
   const handleTimeChange = (habitId: number, value: string) => {
@@ -48,6 +60,46 @@ export default function SmartSchedulerCard({
   const handleSync = async () => {
     await onSaveSchedule(isActive, timesMap)
     setSavedFeedback(true)
+
+    const res = await requestAppNotificationPermission()
+    if (res.granted) {
+      await sendNativeNotification('Habitat Smart Reminders Active', {
+        body: 'Your personalized habit prompt schedule is synced and running.',
+      })
+      setNotifNotice('Phone notifications active ✓')
+    } else if (res.message) {
+      setNotifNotice(res.message)
+    }
+  }
+
+  const handleTriggerTaskAlert = async () => {
+    const msg =
+      '🔥 TASK BURNING: Urgent Priority — “Client 4K Video Color Grading” is about to expire! (Expiring in 45m)'
+    onTriggerTestToast(msg)
+
+    if (notifStatus.permission !== 'granted') {
+      const res = await requestAppNotificationPermission()
+      if (res.message) setNotifNotice(res.message)
+    }
+    await sendNativeNotification('🔥 TASK BURNING: Urgent Priority', {
+      body: '“Client 4K Video Color Grading” is about to expire! (Expiring in 45m)',
+      tag: 'task-alert',
+    })
+  }
+
+  const handleTriggerStreakGuard = async () => {
+    const count = Math.max(2, habitsCount)
+    const msg = `🛡️ STREAK GUARD: ${count} habits remaining — Don't let your 14-day streak die tonight! Tap to log.`
+    onTriggerTestToast(msg)
+
+    if (notifStatus.permission !== 'granted') {
+      const res = await requestAppNotificationPermission()
+      if (res.message) setNotifNotice(res.message)
+    }
+    await sendNativeNotification('🛡️ STREAK GUARD', {
+      body: `${count} habits remaining — Don't let your streak die tonight! Tap to log.`,
+      tag: 'streak-guard',
+    })
   }
 
   return (
@@ -147,25 +199,29 @@ export default function SmartSchedulerCard({
         )}
       </button>
 
-      {savedFeedback && (
-        <p className="mt-1.5 text-center text-[11px] text-[#8E8E93]">
-          Phone notifications are coming in a later update.
+      {notifNotice && (
+        <p className="mt-2 rounded-[10px] bg-[#0D0D0E] p-2.5 text-center text-[11px] leading-relaxed text-[#FF9F0A]">
+          {notifNotice}
         </p>
       )}
 
       {/* Push Notification Test Lab */}
-      <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.8px] text-[#FF6A00]">
-        PUSH NOTIFICATION TEST LAB
-      </p>
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-[0.8px] text-[#FF6A00]">
+          PUSH NOTIFICATION TEST LAB
+        </p>
+        {notifStatus.isIos && !notifStatus.isStandalone && (
+          <span className="flex items-center gap-1 text-[10px] text-[#8E8E93]">
+            <Smartphone className="h-3 w-3" />
+            Add to Home Screen
+          </span>
+        )}
+      </div>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() =>
-            onTriggerTestToast(
-              '🔥 TASK BURNING: Urgent Priority — “Client 4K Video Color Grading” is about to expire! (Expiring in 45m)'
-            )
-          }
+          onClick={handleTriggerTaskAlert}
           className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-[12px] border border-[#FF9F0A]/70 text-[11px] font-bold text-[#FF9F0A] active:scale-95"
         >
           <Flame className="h-3.5 w-3.5" />
@@ -174,12 +230,7 @@ export default function SmartSchedulerCard({
 
         <button
           type="button"
-          onClick={() => {
-            const count = Math.max(2, habitsCount)
-            onTriggerTestToast(
-              `🛡️ STREAK GUARD: ${count} habits remaining — Don't let your 14-day streak die tonight! Tap to log.`
-            )
-          }}
+          onClick={handleTriggerStreakGuard}
           className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-[12px] border border-[#FF6A00]/70 text-[11px] font-bold text-[#FF6A00] active:scale-95"
         >
           <Shield className="h-3.5 w-3.5" />

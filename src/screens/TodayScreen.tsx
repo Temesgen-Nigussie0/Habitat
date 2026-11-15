@@ -176,7 +176,7 @@ export default function TodayScreen() {
   const userName = profile?.userName || 'Alex'
 
   return (
-    <Screen>
+    <Screen noNav={addEditOpen}>
       <ParticleCelebration
         active={showCelebration}
         onComplete={() => setShowCelebration(false)}

@@ -80,11 +80,11 @@ export default function HabitDetailSheet({
               <div
                 className="w-14 h-14 rounded-[16px] flex items-center justify-center border"
                 style={{
-                  backgroundColor: habit.colorHex + '22',
-                  borderColor: habit.colorHex + '55',
+                  backgroundColor: 'rgba(255,106,0,0.14)',
+                  borderColor: 'rgba(255,106,0,0.3)',
                 }}
               >
-                <HabitIcon iconName={habit.iconName} color={habit.colorHex} size={26} />
+                <HabitIcon iconName={habit.iconName} color="#FF6A00" size={26} />
               </div>
 
               <button

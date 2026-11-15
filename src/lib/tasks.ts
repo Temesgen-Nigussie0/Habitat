@@ -48,9 +48,9 @@ export function filterTasksByWorkspace(
   tasks: Task[],
   workspaceFilter: string
 ): Task[] {
-  if (!workspaceFilter || workspaceFilter === 'All') return tasks
-  const target = workspaceFilter.toLowerCase()
-  return tasks.filter((t) => (t.clientOrCourse ?? '').toLowerCase() === target)
+  if (!workspaceFilter || workspaceFilter.trim().toLowerCase() === 'all') return tasks
+  const target = workspaceFilter.trim().toLowerCase()
+  return tasks.filter((t) => (t.clientOrCourse ?? '').trim().toLowerCase() === target)
 }
 
 /**

@@ -61,7 +61,7 @@ export default function BottomNav() {
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 active:opacity-60 transition-opacity"
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 active:scale-90 active:opacity-70 transition-all duration-150"
               style={{ minHeight: 44 }}
             >
               <Icon

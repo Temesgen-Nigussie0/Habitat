@@ -240,6 +240,17 @@ export default function TasksScreen() {
       await updateTask({ ...taskData, id: existingTask.id })
     } else {
       await insertTask(taskData)
+      if (
+        workspaceFilter &&
+        workspaceFilter.toLowerCase() !== 'all' &&
+        taskData.clientOrCourse &&
+        workspaceFilter.toLowerCase() !== taskData.clientOrCourse.toLowerCase()
+      ) {
+        setWorkspaceFilter(taskData.clientOrCourse)
+      }
+      if (searchQuery) {
+        setSearchQuery('')
+      }
     }
   }
 
@@ -830,6 +841,7 @@ export default function TasksScreen() {
         isOpen={addEditOpen}
         taskToEdit={editingTask}
         workspaces={workspaces}
+        currentWorkspace={workspaceFilter}
         defaultDateStr={selectedDateStr}
         onClose={() => {
           setAddEditOpen(false)

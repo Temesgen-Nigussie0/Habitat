@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import BottomNav from './BottomNav'
 
 interface ScreenProps {
@@ -8,6 +9,8 @@ interface ScreenProps {
 }
 
 export default function Screen({ children, className = '', noNav = false }: ScreenProps) {
+  const prefersReduced = useReducedMotion()
+
   return (
     <div
       className={`relative bg-black overflow-y-auto overflow-x-hidden scrollbar-hidden ${className}`}
@@ -20,7 +23,14 @@ export default function Screen({ children, className = '', noNav = false }: Scre
           : 'calc(env(safe-area-inset-bottom) + 90px)',
       }}
     >
-      {children}
+      <motion.div
+        initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full min-h-full"
+      >
+        {children}
+      </motion.div>
       {!noNav && <BottomNav />}
     </div>
   )

@@ -151,15 +151,15 @@ export default function HabitCard({
         }}
       >
         <div className="flex items-center gap-3">
-          {/* Colored Icon Chip */}
+          {/* Orange Icon Chip */}
           <div
             className="w-14 h-14 rounded-[14px] flex items-center justify-center flex-shrink-0 border"
             style={{
-              backgroundColor: habit.colorHex + '22',
-              borderColor: habit.colorHex + '44',
+              backgroundColor: 'rgba(255,106,0,0.14)',
+              borderColor: 'rgba(255,106,0,0.3)',
             }}
           >
-            <HabitIcon iconName={habit.iconName} color={habit.colorHex} size={24} />
+            <HabitIcon iconName={habit.iconName} color="#FF6A00" size={24} />
           </div>
 
           {/* Middle Info */}

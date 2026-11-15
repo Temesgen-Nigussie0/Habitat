@@ -150,11 +150,11 @@ export default function HabitStackCircuitView({
                 <div
                   className="w-11 h-11 rounded-[12px] flex items-center justify-center flex-shrink-0 border"
                   style={{
-                    backgroundColor: habit.colorHex + '22',
-                    borderColor: habit.colorHex + '44',
+                    backgroundColor: 'rgba(255,106,0,0.14)',
+                    borderColor: 'rgba(255,106,0,0.3)',
                   }}
                 >
-                  <HabitIcon iconName={habit.iconName} color={habit.colorHex} size={20} />
+                  <HabitIcon iconName={habit.iconName} color="#FF6A00" size={20} />
                 </div>
 
                 <div className="flex-1 min-w-0">

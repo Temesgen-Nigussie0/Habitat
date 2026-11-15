@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Minus, Plus, Check } from 'lucide-react'
+import { X, Minus, Plus } from 'lucide-react'
 import type { Habit } from '../db/types'
-import { HABIT_ICONS, HABIT_COLORS } from '../lib/habitIcons'
+import { HABIT_ICONS } from '../lib/habitIcons'
 import { insertHabit, updateHabit } from '../db/actions'
 
 interface AddEditHabitSheetProps {
@@ -40,8 +40,6 @@ export default function AddEditHabitSheet({
   const [iconName, setIconName] = useState('workout')
   const [timeOfDay, setTimeOfDay] = useState('Morning')
   const [targetCount, setTargetCount] = useState(1)
-  const [unit, setUnit] = useState('times')
-  const [colorHex, setColorHex] = useState('#FF6A00')
   const [frequency, setFrequency] = useState('DAILY')
   const [customDays, setCustomDays] = useState<string[]>(['1', '3', '5'])
   const [error, setError] = useState('')
@@ -55,8 +53,6 @@ export default function AddEditHabitSheet({
       setIconName(habitToEdit.iconName)
       setTimeOfDay(habitToEdit.timeOfDay)
       setTargetCount(habitToEdit.targetCount)
-      setUnit(habitToEdit.unit)
-      setColorHex(habitToEdit.colorHex)
       setFrequency(habitToEdit.frequency || 'DAILY')
       setCustomDays(
         habitToEdit.customDays
@@ -69,8 +65,6 @@ export default function AddEditHabitSheet({
       setIconName('workout')
       setTimeOfDay('Morning')
       setTargetCount(1)
-      setUnit('times')
-      setColorHex('#FF6A00')
       setFrequency('DAILY')
       setCustomDays(['1', '3', '5'])
     }
@@ -96,6 +90,8 @@ export default function AddEditHabitSheet({
     setIsSaving(true)
     try {
       const customDaysStr = frequency === 'CUSTOM' ? customDays.join(',') : ''
+      const colorHex = '#FF6A00'
+      const unit = 'times'
       if (habitToEdit && habitToEdit.id !== undefined) {
         await updateHabit({
           ...habitToEdit,
@@ -104,7 +100,7 @@ export default function AddEditHabitSheet({
           iconName,
           colorHex,
           targetCount,
-          unit: unit.trim() || 'times',
+          unit,
           timeOfDay,
           frequency,
           customDays: customDaysStr,
@@ -116,7 +112,7 @@ export default function AddEditHabitSheet({
           iconName,
           colorHex,
           targetCount,
-          unit: unit.trim() || 'times',
+          unit,
           timeOfDay,
           frequency,
           customDays: customDaysStr,
@@ -228,12 +224,7 @@ export default function AddEditHabitSheet({
                       <button
                         key={key}
                         type="button"
-                        onClick={() => {
-                          setIconName(key)
-                          if (key === 'water' && unit === 'times') {
-                            setUnit('glasses')
-                          }
-                        }}
+                        onClick={() => setIconName(key)}
                         aria-label={label}
                         className="h-12 rounded-[12px] border flex items-center justify-center transition-colors"
                         style={{
@@ -284,7 +275,7 @@ export default function AddEditHabitSheet({
                 <div className="rounded-[14px] bg-elevated border border-border px-4 py-2.5 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-text-primary text-[15px] font-semibold">
-                      {targetCount} {unit} per day
+                      {targetCount} {targetCount === 1 ? 'time' : 'times'} per day
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -306,46 +297,9 @@ export default function AddEditHabitSheet({
                     </button>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-text-tertiary">Unit:</span>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    placeholder="times, glasses, pages..."
-                    className="flex-1 min-h-[40px] px-3 py-1.5 rounded-[10px] bg-elevated border border-border text-text-primary text-[16px] focus:outline-none focus:border-orange"
-                  />
-                </div>
               </div>
 
-              {/* 6. COLOR */}
-              <div>
-                <label className="block text-orange text-[11px] font-bold tracking-[0.08em] uppercase mb-2">
-                  COLOR
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  {HABIT_COLORS.map((hex) => {
-                    const selected = colorHex.toUpperCase() === hex.toUpperCase()
-                    return (
-                      <button
-                        key={hex}
-                        type="button"
-                        onClick={() => setColorHex(hex)}
-                        aria-label={`Color ${hex}`}
-                        className="w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-95"
-                        style={{
-                          backgroundColor: hex,
-                          boxShadow: selected ? `0 0 0 2px #0E0E12, 0 0 0 4px ${hex}` : 'none',
-                        }}
-                      >
-                        {selected && <Check size={18} color="#FFFFFF" strokeWidth={2.5} />}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* 7. FREQUENCY */}
+              {/* 6. FREQUENCY */}
               <div>
                 <label className="block text-orange text-[11px] font-bold tracking-[0.08em] uppercase mb-2">
                   FREQUENCY
@@ -397,13 +351,13 @@ export default function AddEditHabitSheet({
               </div>
             </div>
 
-            {/* Footer Save Button */}
-            <div className="px-5 py-3 border-t border-border bg-surface flex-shrink-0">
+            {/* Pinned Sticky Footer Save Button */}
+            <div className="px-5 py-3.5 border-t border-border bg-surface flex-shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="w-full min-h-[52px] rounded-[14px] font-bold text-base transition-colors active:scale-[0.98]"
+                className="w-full min-h-[50px] rounded-[16px] font-bold text-[15px] transition-all active:scale-[0.98] shadow-lg shadow-orange/20"
                 style={{
                   backgroundColor: name.trim() ? '#FF6A00' : '#14141A',
                   color: name.trim() ? '#FFFFFF' : '#6E6E7A',
