@@ -21,6 +21,7 @@ export interface Habit {
   currentStreak: number
   bestStreak: number
   lastCompletedDate: string | null
+  reminderTime?: string | null
   createdAt: number
   isArchived: boolean
 }

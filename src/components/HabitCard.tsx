@@ -164,7 +164,15 @@ export default function HabitCard({
 
           {/* Middle Info */}
           <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-bold text-text-primary truncate">{habit.name}</p>
+            <p
+              className={`text-[15px] font-bold truncate transition-all duration-300 ${
+                isCompleted
+                  ? 'line-through text-text-secondary opacity-75 decoration-[#FF6A00] decoration-2'
+                  : 'text-text-primary'
+              }`}
+            >
+              {habit.name}
+            </p>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-elevated text-text-secondary border border-border">
                 {habit.category}

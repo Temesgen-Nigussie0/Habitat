@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Minus, Plus } from 'lucide-react'
+import { X, Minus, Plus, Clock } from 'lucide-react'
 import type { Habit } from '../db/types'
 import { HABIT_ICONS } from '../lib/habitIcons'
 import { insertHabit, updateHabit } from '../db/actions'
+import { scheduleHabitReminder } from '../lib/notifications'
 
 interface AddEditHabitSheetProps {
   open: boolean
@@ -42,6 +43,8 @@ export default function AddEditHabitSheet({
   const [targetCount, setTargetCount] = useState(1)
   const [frequency, setFrequency] = useState('DAILY')
   const [customDays, setCustomDays] = useState<string[]>(['1', '3', '5'])
+  const [hasReminder, setHasReminder] = useState(false)
+  const [reminderTime, setReminderTime] = useState('08:00')
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -59,6 +62,13 @@ export default function AddEditHabitSheet({
           ? habitToEdit.customDays.split(',').map((s) => s.trim()).filter(Boolean)
           : ['1', '3', '5']
       )
+      if (habitToEdit.reminderTime) {
+        setHasReminder(true)
+        setReminderTime(habitToEdit.reminderTime)
+      } else {
+        setHasReminder(false)
+        setReminderTime('08:00')
+      }
     } else {
       setName('')
       setCategory('Health')
@@ -67,6 +77,8 @@ export default function AddEditHabitSheet({
       setTargetCount(1)
       setFrequency('DAILY')
       setCustomDays(['1', '3', '5'])
+      setHasReminder(false)
+      setReminderTime('08:00')
     }
     setError('')
   }, [open, habitToEdit])
@@ -92,6 +104,7 @@ export default function AddEditHabitSheet({
       const customDaysStr = frequency === 'CUSTOM' ? customDays.join(',') : ''
       const colorHex = '#FF6A00'
       const unit = 'times'
+      const cleanReminder = hasReminder && reminderTime.trim() ? reminderTime.trim() : null
       if (habitToEdit && habitToEdit.id !== undefined) {
         await updateHabit({
           ...habitToEdit,
@@ -104,6 +117,7 @@ export default function AddEditHabitSheet({
           timeOfDay,
           frequency,
           customDays: customDaysStr,
+          reminderTime: cleanReminder,
         })
       } else {
         await insertHabit({
@@ -116,12 +130,16 @@ export default function AddEditHabitSheet({
           timeOfDay,
           frequency,
           customDays: customDaysStr,
+          reminderTime: cleanReminder,
           currentStreak: 0,
           bestStreak: 0,
           lastCompletedDate: null,
           createdAt: Date.now(),
           isArchived: false,
         })
+      }
+      if (cleanReminder) {
+        void scheduleHabitReminder(trimmed, cleanReminder)
       }
       onClose()
     } finally {
@@ -346,6 +364,57 @@ export default function AddEditHabitSheet({
                         </button>
                       )
                     })}
+                  </div>
+                )}
+              </div>
+
+              {/* 7. REMIND ME (Optional Habit Reminder) */}
+              <div className="rounded-[14px] bg-elevated border border-border p-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-orange/15 text-orange">
+                      <Clock size={16} />
+                    </div>
+                    <div>
+                      <span className="block text-[13px] font-semibold text-text-primary">
+                        Remind Me
+                      </span>
+                      <span className="text-[11px] text-text-tertiary">
+                        Daily notification reminder
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={hasReminder}
+                    aria-label="Toggle habit reminder"
+                    onClick={() => setHasReminder((v) => !v)}
+                    className={`relative h-6 w-11 rounded-full transition-colors ${
+                      hasReminder ? 'bg-orange' : 'bg-[#242428]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                        hasReminder ? 'left-5' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {hasReminder && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <label className="block text-orange text-[10px] font-bold tracking-[0.08em] uppercase mb-1.5">
+                      REMINDER TIME
+                    </label>
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      style={{ colorScheme: 'dark', boxSizing: 'border-box' }}
+                      className="w-full min-h-[44px] px-3.5 py-2 rounded-[12px] bg-[#14141A] border border-border text-text-primary text-[15px] font-semibold focus:outline-none focus:border-orange"
+                    />
                   </div>
                 )}
               </div>

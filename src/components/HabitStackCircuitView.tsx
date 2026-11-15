@@ -158,7 +158,15 @@ export default function HabitStackCircuitView({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-text-primary truncate">{habit.name}</p>
+                  <p
+                    className={`text-sm font-bold truncate transition-all duration-300 ${
+                      isCompleted
+                        ? 'line-through text-text-secondary opacity-75 decoration-[#FF6A00] decoration-2'
+                        : 'text-text-primary'
+                    }`}
+                  >
+                    {habit.name}
+                  </p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[11px] text-text-tertiary">{habit.timeOfDay}</span>
                     {habit.targetCount > 1 && (

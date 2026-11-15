@@ -230,6 +230,29 @@ export default function TasksScreen() {
   const totalCount = workspaceScopedTasks.length
   const completionPct =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100)
+  const [animatedPct, setAnimatedPct] = useState(completionPct)
+
+  // Smoothly glide the task completion percentage counter
+  useEffect(() => {
+    let start = animatedPct
+    const diff = completionPct - start
+    if (diff === 0) return
+    const duration = 750
+    const startTime = performance.now()
+    let frameId: number
+
+    const tick = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(1, elapsed / duration)
+      const ease = 1 - Math.pow(1 - progress, 3)
+      setAnimatedPct(Math.round(start + diff * ease))
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick)
+      }
+    }
+    frameId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameId)
+  }, [completionPct])
 
   const handleSelectMonth = (monthIdx: number) => {
     setSelectedMonth(monthIdx)
@@ -553,9 +576,13 @@ export default function TasksScreen() {
           </div>
 
           {/* Horizontal Day Strip */}
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <div
+            className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-hidden"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             {monthDays.map((d) => {
               const isSelected = d.dateStr === selectedDateStr
+              const isToday = d.dateStr === todayStr
               return (
                 <button
                   key={d.dateStr}
@@ -564,16 +591,28 @@ export default function TasksScreen() {
                   onClick={() => setSelectedDateStr(d.dateStr)}
                   className={`flex min-h-[58px] min-w-[46px] shrink-0 flex-col items-center justify-center rounded-[16px] transition-colors ${
                     isSelected
-                      ? 'bg-[#FF6A00] text-white'
-                      : 'border border-[#242428] bg-[#161618] text-[#A1A1AA]'
+                      ? isToday
+                        ? 'bg-[#FF6A00] text-white border-2 border-[#FF6A00]'
+                        : 'border-2 border-[#FF6A00] bg-[#FF6A00]/15 text-[#FF6A00]'
+                      : isToday
+                        ? 'border border-[#FF6A00]/60 bg-[#161618] text-[#F5F5F7]'
+                        : 'border border-[#242428] bg-[#161618] text-[#A1A1AA]'
                   }`}
                 >
-                  <span className="text-[15px] font-bold leading-none">
+                  <span
+                    className={`text-[15px] font-bold leading-none ${
+                      isSelected && !isToday ? 'text-[#FF6A00]' : ''
+                    }`}
+                  >
                     {d.dayNum}
                   </span>
                   <span
                     className={`mt-1 text-[11px] font-medium ${
-                      isSelected ? 'text-white/90' : 'text-[#8E8E93]'
+                      isSelected
+                        ? isToday
+                          ? 'text-white/90'
+                          : 'text-[#FF6A00]'
+                        : 'text-[#8E8E93]'
                     }`}
                   >
                     {d.weekday}
@@ -657,7 +696,7 @@ export default function TasksScreen() {
                   strokeWidth={4}
                 >
                   <span className="text-[11px] font-bold text-[#F5F5F7]">
-                    {completionPct}%
+                    {animatedPct}%
                   </span>
                 </ProgressRing>
                 <div className="min-w-0">

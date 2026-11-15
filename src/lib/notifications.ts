@@ -177,19 +177,14 @@ export interface PendingTaskReminder {
 
 /**
  * Schedules a native notification reminder for a task on a specific date and time.
- * Requests notification permission if needed and sets a timer.
+ * Requests notification permission if needed, sends an immediate confirmation alert, and sets a timer.
  */
-export function scheduleTaskReminder(
+export async function scheduleTaskReminder(
   taskTitle: string,
   dateStr: string,
   timeStr: string
-): void {
+): Promise<void> {
   if (typeof window === 'undefined' || !dateStr || !timeStr) return
-
-  // Prompt for permission if not granted
-  if (isNotificationSupported() && Notification.permission === 'default') {
-    void Notification.requestPermission()
-  }
 
   const [hours, minutes] = timeStr.split(':').map(Number)
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -197,7 +192,7 @@ export function scheduleTaskReminder(
   const targetTimestamp = targetDate.getTime()
   const delay = targetTimestamp - Date.now()
 
-  // Save to persistent localStorage queue
+  // Save to persistent localStorage queue immediately
   try {
     const raw = localStorage.getItem(TASK_REMINDERS_KEY)
     const list: PendingTaskReminder[] = raw ? JSON.parse(raw) : []
@@ -208,7 +203,6 @@ export function scheduleTaskReminder(
       timeStr,
       targetTimestamp,
     }
-    // Prune expired reminders older than 1 day
     const updated = list
       .filter((r) => r.targetTimestamp > Date.now() - 86400000)
       .concat(newEntry)
@@ -217,12 +211,71 @@ export function scheduleTaskReminder(
     // Ignore quota errors
   }
 
-  // If due within the next 24 hours, set a timer in the active window
+  // Prompt for permission if not granted
+  if (isNotificationSupported() && Notification.permission !== 'granted') {
+    await requestAppNotificationPermission()
+  }
+
+  // Send immediate feedback that reminder is active
+  await sendNativeNotification(`⏰ Reminder Set: ${taskTitle}`, {
+    body: `Habitat will alert you at ${timeStr}.`,
+    tag: `task-confirm-${taskTitle}`,
+  })
+
   if (delay > 0 && delay <= 86400000) {
     window.setTimeout(() => {
       void sendNativeNotification(`⏰ Task Reminder: ${taskTitle}`, {
-        body: `Due at ${timeStr}. Tap to open Habitat and complete.`,
+        body: `Due now (${timeStr}). Tap to complete in Habitat.`,
         tag: `task-reminder-${taskTitle}`,
+      })
+    }, delay)
+  }
+}
+
+const HABIT_REMINDERS_KEY = 'habitat_pending_habit_reminders'
+
+/**
+ * Schedules a daily habit reminder. Sends an immediate confirmation and sets the timer.
+ */
+export async function scheduleHabitReminder(
+  habitName: string,
+  timeStr: string | null
+): Promise<void> {
+  if (typeof window === 'undefined' || !timeStr) return
+
+  if (isNotificationSupported() && Notification.permission !== 'granted') {
+    await requestAppNotificationPermission()
+  }
+
+  // Send immediate confirmation
+  await sendNativeNotification(`🔔 Habit Reminder Active: ${habitName}`, {
+    body: `Daily prompt scheduled for ${timeStr}.`,
+    tag: `habit-confirm-${habitName}`,
+  })
+
+  // Calculate next occurrence
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  const now = new Date()
+  let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0)
+  if (target.getTime() <= now.getTime()) {
+    target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hours, minutes, 0)
+  }
+  const delay = target.getTime() - now.getTime()
+
+  try {
+    const raw = localStorage.getItem(HABIT_REMINDERS_KEY)
+    const map = raw ? JSON.parse(raw) : {}
+    map[habitName] = timeStr
+    localStorage.setItem(HABIT_REMINDERS_KEY, JSON.stringify(map))
+  } catch {
+    // ignore
+  }
+
+  if (delay > 0 && delay <= 86400000) {
+    window.setTimeout(() => {
+      void sendNativeNotification(`🔥 Habit Prompt: ${habitName}`, {
+        body: `It's ${timeStr} — time to build your streak!`,
+        tag: `habit-reminder-${habitName}`,
       })
     }, delay)
   }

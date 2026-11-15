@@ -57,6 +57,7 @@ export default function TodayScreen() {
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null)
   const [streakModalOpen, setStreakModalOpen] = useState(false)
+  const [isLevelUpModal, setIsLevelUpModal] = useState(false)
 
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -73,7 +74,23 @@ export default function TodayScreen() {
   const tasksTotal = tasks.length
 
   const isLoading = habits === undefined || entriesForDate === undefined
-  const isLocked = isFuture(selectedDate)
+  const isFutureDate = isFuture(selectedDate)
+  const isPast = selectedDate < todayStr
+  const isLocked = isFutureDate || isPast
+
+  // Check next-day app opening to celebrate streak increase
+  useEffect(() => {
+    const lastDate = localStorage.getItem('habitat_last_visited_date')
+    const lastLevelUpDate = localStorage.getItem('habitat_streak_levelup_date')
+
+    localStorage.setItem('habitat_last_visited_date', todayStr)
+
+    if (lastDate && lastDate !== todayStr && lastLevelUpDate !== todayStr) {
+      localStorage.setItem('habitat_streak_levelup_date', todayStr)
+      setIsLevelUpModal(true)
+      setStreakModalOpen(true)
+    }
+  }, [todayStr])
 
   const earliestEntryDate = useMemo(() => {
     if (!allEntries || allEntries.length === 0) return null
@@ -189,7 +206,11 @@ export default function TodayScreen() {
   }, [lockedToast])
 
   const showLockedMessage = () => {
-    setLockedToast('Future days are locked until they arrive.')
+    if (isPast) {
+      setLockedToast("You missed it, buddy! ⏳ Time travel isn't invented yet — focus on winning today!")
+    } else {
+      setLockedToast('Future days are locked until they arrive.')
+    }
   }
 
   const handleSelectViewMode = (mode: TodayViewMode) => {
@@ -351,7 +372,10 @@ export default function TodayScreen() {
 
           <button
             type="button"
-            onClick={() => setStreakModalOpen(true)}
+            onClick={() => {
+              setIsLevelUpModal(false)
+              setStreakModalOpen(true)
+            }}
             aria-label="View daily streak details"
             className="flex items-center gap-1.5 px-3 py-2 rounded-full border mt-1 flex-shrink-0 active:scale-95 transition-transform"
             style={{
@@ -367,9 +391,13 @@ export default function TodayScreen() {
         </div>
 
         {/* Week Strip */}
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div
+          className="flex gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-hidden"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {weekDays.map((d) => {
             const selected = d.isSelected
+            const isToday = d.isToday
             return (
               <button
                 key={d.dateStr}
@@ -377,26 +405,38 @@ export default function TodayScreen() {
                 type="button"
                 onClick={() => {
                   if (d.isFuture) {
-                    showLockedMessage()
+                    setLockedToast('Future days are locked until they arrive.')
                   } else {
                     setSelectedDate(d.dateStr)
                   }
                 }}
                 aria-label={d.isFuture ? `${d.dateStr} locked` : d.dateStr}
-                className="min-w-[46px] flex-1 flex flex-col items-center justify-center rounded-[14px] border py-2 gap-0.5 transition-colors shrink-0"
+                className="min-w-[46px] flex-1 flex flex-col items-center justify-center rounded-[14px] py-2 gap-0.5 transition-colors shrink-0"
                 style={{
-                  backgroundColor: selected ? '#FF6A00' : '#14141A',
+                  backgroundColor: selected
+                    ? isToday
+                      ? '#FF6A00'
+                      : 'rgba(255,106,0,0.16)'
+                    : '#14141A',
                   borderColor: selected
                     ? '#FF6A00'
-                    : d.isToday
+                    : isToday
                       ? 'rgba(255,106,0,0.6)'
                       : '#22222E',
+                  borderWidth: selected ? 2 : 1,
+                  borderStyle: 'solid',
                   minHeight: 56,
                 }}
               >
                 <span
                   className="text-[11px] font-semibold"
-                  style={{ color: selected ? '#FFFFFF' : '#6E6E7A' }}
+                  style={{
+                    color: selected
+                      ? isToday
+                        ? '#FFFFFF'
+                        : '#FF6A00'
+                      : '#6E6E7A',
+                  }}
                 >
                   {d.letter}
                 </span>
@@ -405,7 +445,13 @@ export default function TodayScreen() {
                 ) : (
                   <span
                     className="text-sm font-bold"
-                    style={{ color: selected ? '#FFFFFF' : '#F7F7FA' }}
+                    style={{
+                      color: selected
+                        ? isToday
+                          ? '#FFFFFF'
+                          : '#FF6A00'
+                        : '#F7F7FA',
+                    }}
                   >
                     {d.num}
                   </span>
@@ -517,7 +563,7 @@ export default function TodayScreen() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 pb-4">
+              <div className={`space-y-3 pb-4 ${isPast ? 'opacity-65' : ''}`}>
                 {activeHabits.map((habit) => (
                   <HabitCard
                     key={habit.id}
@@ -612,7 +658,10 @@ export default function TodayScreen() {
       {/* Daily Streak Status Modal */}
       <DailyStreakModal
         isOpen={streakModalOpen}
-        onClose={() => setStreakModalOpen(false)}
+        onClose={() => {
+          setStreakModalOpen(false)
+          setIsLevelUpModal(false)
+        }}
         currentStreak={maxStreak}
         bestStreak={bestStreak}
         tasksDone={tasksDone}
@@ -620,6 +669,7 @@ export default function TodayScreen() {
         habitsDone={completedScheduledCount}
         habitsScheduled={totalScheduled}
         completionPercent={completionPercent}
+        isLevelUpMode={isLevelUpModal}
       />
     </Screen>
   )

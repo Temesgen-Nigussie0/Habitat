@@ -49,6 +49,9 @@ export default function ProgressRing({
           strokeWidth={strokeWidth}
           strokeDasharray={`${dash} ${circumference}`}
           strokeLinecap="round"
+          style={{
+            transition: 'stroke-dasharray 900ms cubic-bezier(0.25, 1, 0.5, 1)',
+          }}
         />
       </svg>
       {children && (

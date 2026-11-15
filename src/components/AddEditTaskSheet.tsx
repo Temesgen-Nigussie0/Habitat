@@ -130,6 +130,8 @@ export function AddEditTaskSheet({
       await onSave(payload, taskToEdit ?? undefined)
       if (cleanTimeline) {
         scheduleTaskReminder(cleanTitle, cleanDue || getTodayLocal(), cleanTimeline)
+      } else if (cleanDue) {
+        scheduleTaskReminder(cleanTitle, cleanDue, '09:00')
       }
       onClose()
     } catch (err) {

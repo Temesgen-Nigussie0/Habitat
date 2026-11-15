@@ -20,7 +20,7 @@ export default function ProgressBar({
       style={{ height, backgroundColor: trackColor }}
     >
       <div
-        className="h-full rounded-full transition-all duration-500 ease-out"
+        className="h-full rounded-full transition-all duration-1000 ease-[cubic-bezier(0.25,1,0.5,1)]"
         style={{ width: `${pct}%`, backgroundColor: color }}
       />
     </div>
