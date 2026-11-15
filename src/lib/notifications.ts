@@ -164,3 +164,95 @@ export async function sendNativeNotification(
     return false
   }
 }
+
+const TASK_REMINDERS_KEY = 'habitat_pending_task_reminders'
+
+export interface PendingTaskReminder {
+  id: string
+  title: string
+  dateStr: string
+  timeStr: string
+  targetTimestamp: number
+}
+
+/**
+ * Schedules a native notification reminder for a task on a specific date and time.
+ * Requests notification permission if needed and sets a timer.
+ */
+export function scheduleTaskReminder(
+  taskTitle: string,
+  dateStr: string,
+  timeStr: string
+): void {
+  if (typeof window === 'undefined' || !dateStr || !timeStr) return
+
+  // Prompt for permission if not granted
+  if (isNotificationSupported() && Notification.permission === 'default') {
+    void Notification.requestPermission()
+  }
+
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const targetDate = new Date(year, month - 1, day, hours, minutes, 0)
+  const targetTimestamp = targetDate.getTime()
+  const delay = targetTimestamp - Date.now()
+
+  // Save to persistent localStorage queue
+  try {
+    const raw = localStorage.getItem(TASK_REMINDERS_KEY)
+    const list: PendingTaskReminder[] = raw ? JSON.parse(raw) : []
+    const newEntry: PendingTaskReminder = {
+      id: `${taskTitle}-${dateStr}-${timeStr}-${Date.now()}`,
+      title: taskTitle,
+      dateStr,
+      timeStr,
+      targetTimestamp,
+    }
+    // Prune expired reminders older than 1 day
+    const updated = list
+      .filter((r) => r.targetTimestamp > Date.now() - 86400000)
+      .concat(newEntry)
+    localStorage.setItem(TASK_REMINDERS_KEY, JSON.stringify(updated))
+  } catch {
+    // Ignore quota errors
+  }
+
+  // If due within the next 24 hours, set a timer in the active window
+  if (delay > 0 && delay <= 86400000) {
+    window.setTimeout(() => {
+      void sendNativeNotification(`⏰ Task Reminder: ${taskTitle}`, {
+        body: `Due at ${timeStr}. Tap to open Habitat and complete.`,
+        tag: `task-reminder-${taskTitle}`,
+      })
+    }, delay)
+  }
+}
+
+/**
+ * Checks and schedules any pending reminders from localStorage upon app initialization.
+ */
+export function initPendingTaskReminders(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem(TASK_REMINDERS_KEY)
+    if (!raw) return
+    const list: PendingTaskReminder[] = JSON.parse(raw)
+    const now = Date.now()
+    const active = list.filter((r) => r.targetTimestamp > now)
+
+    for (const item of active) {
+      const delay = item.targetTimestamp - now
+      if (delay > 0 && delay <= 86400000) {
+        window.setTimeout(() => {
+          void sendNativeNotification(`⏰ Task Reminder: ${item.title}`, {
+            body: `Scheduled for ${item.timeStr}. Tap to open Habitat.`,
+            tag: `task-reminder-${item.id}`,
+          })
+        }, delay)
+      }
+    }
+    localStorage.setItem(TASK_REMINDERS_KEY, JSON.stringify(active))
+  } catch {
+    // ignore
+  }
+}

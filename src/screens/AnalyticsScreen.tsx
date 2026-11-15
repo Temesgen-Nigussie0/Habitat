@@ -141,7 +141,7 @@ export default function AnalyticsScreen() {
   )
 
   return (
-    <Screen className="pb-28">
+    <Screen className="px-5 pt-4 pb-28">
       {/* In-app Toast for Notification Test Lab */}
       {toastMsg && (
         <div className="fixed top-4 left-1/2 z-50 w-[90%] max-w-[390px] -translate-x-1/2 rounded-[16px] border border-[#FF6A00]/60 bg-[#1C1C20] px-4 py-3 text-[12px] font-semibold leading-snug text-[#F5F5F7] shadow-2xl">

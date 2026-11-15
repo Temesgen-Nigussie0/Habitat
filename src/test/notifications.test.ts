@@ -5,6 +5,8 @@ import {
   isStandaloneMode,
   requestAppNotificationPermission,
   sendNativeNotification,
+  scheduleTaskReminder,
+  initPendingTaskReminders,
 } from '../lib/notifications'
 
 describe('Notifications service', () => {
@@ -27,6 +29,17 @@ describe('Notifications service', () => {
   it('safely returns false when sending notification without permission', async () => {
     const sent = await sendNativeNotification('Test Alert', { body: 'Testing' })
     expect(typeof sent).toBe('boolean')
+  })
+
+  it('safely schedules and initializes task reminders in localStorage', () => {
+    scheduleTaskReminder('Client Call', '2026-11-15', '14:30')
+    const raw = localStorage.getItem('habitat_pending_task_reminders')
+    expect(raw).toBeTruthy()
+    const list = JSON.parse(raw || '[]')
+    expect(list.some((r: any) => r.title === 'Client Call')).toBe(true)
+
+    // Verify init runs without throwing
+    expect(() => initPendingTaskReminders()).not.toThrow()
   })
 })
 

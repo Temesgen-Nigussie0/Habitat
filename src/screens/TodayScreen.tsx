@@ -18,11 +18,13 @@ import HabitCard from '../components/HabitCard'
 import HabitStackCircuitView from '../components/HabitStackCircuitView'
 import AddEditHabitSheet from '../components/AddEditHabitSheet'
 import HabitDetailSheet from '../components/HabitDetailSheet'
+import DailyStreakModal from '../components/DailyStreakModal'
 import ParticleCelebration from '../components/ParticleCelebration'
 import {
   useHabits,
   useHabitEntries,
   useAllEntries,
+  useTasks,
   useUserProfile,
 } from '../db/hooks'
 import { toggleHabitCompletion, incrementHabitCounter } from '../db/actions'
@@ -54,6 +56,7 @@ export default function TodayScreen() {
   const [addEditOpen, setAddEditOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null)
+  const [streakModalOpen, setStreakModalOpen] = useState(false)
 
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -62,8 +65,12 @@ export default function TodayScreen() {
 
   const profile = useUserProfile()
   const habits = useHabits()
+  const tasks = useTasks() ?? []
   const entriesForDate = useHabitEntries(selectedDate)
   const allEntries = useAllEntries() ?? []
+
+  const tasksDone = useMemo(() => tasks.filter((t) => t.isCompleted).length, [tasks])
+  const tasksTotal = tasks.length
 
   const isLoading = habits === undefined || entriesForDate === undefined
   const isLocked = isFuture(selectedDate)
@@ -138,6 +145,11 @@ export default function TodayScreen() {
     return Math.max(0, ...habits.map((h) => h.currentStreak))
   }, [habits])
 
+  const bestStreak = useMemo(() => {
+    if (!habits || habits.length === 0) return 0
+    return Math.max(0, ...habits.map((h) => h.bestStreak || h.currentStreak))
+  }, [habits])
+
   // Filter by timeOfDay (Anytime appears in All)
   const filteredHabits = useMemo(() => {
     if (selectedFilter === 'All') return scheduledHabits
@@ -207,7 +219,7 @@ export default function TodayScreen() {
   const userName = profile?.userName || 'Alex'
 
   return (
-    <Screen noNav={addEditOpen}>
+    <Screen noNav={addEditOpen || streakModalOpen}>
       <ParticleCelebration
         active={showCelebration}
         onComplete={() => setShowCelebration(false)}
@@ -337,8 +349,11 @@ export default function TodayScreen() {
             </div>
           </div>
 
-          <div
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border mt-1 flex-shrink-0"
+          <button
+            type="button"
+            onClick={() => setStreakModalOpen(true)}
+            aria-label="View daily streak details"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full border mt-1 flex-shrink-0 active:scale-95 transition-transform"
             style={{
               backgroundColor: 'rgba(255,106,0,0.14)',
               borderColor: 'rgba(255,106,0,0.4)',
@@ -348,7 +363,7 @@ export default function TodayScreen() {
             <span className="text-amber text-xs font-extrabold">
               {maxStreak > 0 ? `${maxStreak} Days` : 'Daily Streak'}
             </span>
-          </div>
+          </button>
         </div>
 
         {/* Week Strip */}
@@ -592,6 +607,19 @@ export default function TodayScreen() {
           setEditingHabit(h)
           setAddEditOpen(true)
         }}
+      />
+
+      {/* Daily Streak Status Modal */}
+      <DailyStreakModal
+        isOpen={streakModalOpen}
+        onClose={() => setStreakModalOpen(false)}
+        currentStreak={maxStreak}
+        bestStreak={bestStreak}
+        tasksDone={tasksDone}
+        tasksTotal={tasksTotal}
+        habitsDone={completedScheduledCount}
+        habitsScheduled={totalScheduled}
+        completionPercent={completionPercent}
       />
     </Screen>
   )

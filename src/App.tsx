@@ -11,6 +11,7 @@ import ScreenErrorBoundary from './components/ScreenErrorBoundary'
 import SwUpdateBanner from './components/SwUpdateBanner'
 import { useUserProfileStatus } from './db/hooks'
 import { db } from './db/db'
+import { initPendingTaskReminders } from './lib/notifications'
 
 function BrandedSplash() {
   return (
@@ -103,6 +104,7 @@ export default function App() {
   const [storageBlocked, setStorageBlocked] = useState(false)
 
   useEffect(() => {
+    initPendingTaskReminders()
     let active = true
     if (typeof indexedDB === 'undefined') {
       setStorageBlocked(true)

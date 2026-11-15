@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X, Plus, Trash2, Calendar } from 'lucide-react'
+import { X, Plus, Trash2, Calendar, Clock } from 'lucide-react'
 import type { Task } from '../db/types'
 import { TASK_CATEGORIES, TASK_PRIORITIES } from '../lib/tasks'
 import { getTodayLocal } from '../lib/streak'
+import { scheduleTaskReminder } from '../lib/notifications'
 
 interface AddEditTaskSheetProps {
   isOpen: boolean
@@ -46,6 +47,8 @@ export function AddEditTaskSheet({
   const [isDateRange, setIsDateRange] = useState(false)
   const [dueDate, setDueDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [hasReminderTime, setHasReminderTime] = useState(false)
+  const [reminderTime, setReminderTime] = useState('09:00')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -68,6 +71,13 @@ export function AddEditTaskSheet({
       setIsDateRange(hasRange)
       setDueDate(taskToEdit.dueDate || today)
       setEndDate(taskToEdit.endDate || taskToEdit.dueDate || today)
+      if (taskToEdit.dailyTimeline) {
+        setHasReminderTime(true)
+        setReminderTime(taskToEdit.dailyTimeline)
+      } else {
+        setHasReminderTime(false)
+        setReminderTime('09:00')
+      }
     } else {
       setTitle('')
       setNotes('')
@@ -77,6 +87,8 @@ export function AddEditTaskSheet({
       setIsDateRange(false)
       setDueDate(today)
       setEndDate(today)
+      setHasReminderTime(false)
+      setReminderTime('09:00')
     }
     setError('')
     setConfirmDelete(false)
@@ -96,6 +108,8 @@ export function AddEditTaskSheet({
     try {
       const cleanDue = dueDate.trim() || null
       const cleanEnd = isDateRange ? endDate.trim() || cleanDue : null
+      const cleanTimeline =
+        hasReminderTime && reminderTime.trim() ? reminderTime.trim() : null
       const payload: Omit<Task, 'id'> = {
         title: cleanTitle,
         notes: notes.trim(),
@@ -104,7 +118,7 @@ export function AddEditTaskSheet({
         scope: taskToEdit?.scope ?? 'Short-Term',
         dueDate: cleanDue,
         endDate: cleanEnd,
-        dailyTimeline: taskToEdit?.dailyTimeline ?? null,
+        dailyTimeline: cleanTimeline,
         estimatedHours: taskToEdit?.estimatedHours ?? 1,
         clientOrCourse: workspace.trim() || workspaces[0] || 'Personal Workspace',
         tags: taskToEdit?.tags ?? '',
@@ -114,6 +128,9 @@ export function AddEditTaskSheet({
         createdAt: taskToEdit?.createdAt ?? Date.now(),
       }
       await onSave(payload, taskToEdit ?? undefined)
+      if (cleanTimeline) {
+        scheduleTaskReminder(cleanTitle, cleanDue || getTodayLocal(), cleanTimeline)
+      }
       onClose()
     } catch (err) {
       setError('Could not save task. Please try again.')
@@ -364,6 +381,57 @@ export function AddEditTaskSheet({
                         className="block w-full max-w-full min-w-0 min-h-[44px] rounded-[14px] border border-[#2C2C30] bg-[#0D0D0E] px-3 py-2.5 text-[16px] text-[#F5F5F7] focus:border-[#FF6A00] focus:outline-none"
                       />
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional Reminder Time */}
+              <div className="rounded-[16px] border border-[#2C2C30] bg-[#0D0D0E] p-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#FF6A00]/15 text-[#FF6A00]">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="block text-[13px] font-semibold text-[#F5F5F7]">
+                        Reminder Time
+                      </span>
+                      <span className="text-[11px] text-[#8E8E93]">
+                        Send a push notification alert
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={hasReminderTime}
+                    aria-label="Toggle task reminder time"
+                    onClick={() => setHasReminderTime((v) => !v)}
+                    className={`relative h-6 w-11 rounded-full transition-colors ${
+                      hasReminderTime ? 'bg-[#FF6A00]' : 'bg-[#242428]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                        hasReminderTime ? 'left-5' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {hasReminderTime && (
+                  <div className="mt-3 border-t border-[#242428] pt-3">
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[#8E8E93]">
+                      Alert Time
+                    </label>
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      style={{ colorScheme: 'dark', boxSizing: 'border-box' }}
+                      className="block w-full min-h-[44px] rounded-[12px] border border-[#2C2C30] bg-[#161618] px-3.5 py-2 text-[15px] font-semibold text-[#F5F5F7] focus:border-[#FF6A00] focus:outline-none"
+                    />
                   </div>
                 )}
               </div>
