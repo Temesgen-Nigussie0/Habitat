@@ -1,6 +1,6 @@
 import { db } from './db'
 import type { Habit, HabitEntry, Task, UserProfile, BossChallenge } from './types'
-import { calculateStreak, getTodayLocal } from '../lib/streak'
+import { calculateStreak, getHabitStartDate, getTodayLocal } from '../lib/streak'
 import { mapPresetToHabit } from '../lib/stats'
 
 // ─── Habit CRUD ──────────────────────────────────────────────────────────────
@@ -147,7 +147,10 @@ async function _recalculateStreak(habitId: number): Promise<void> {
     completedDates,
     habit.frequency,
     habit.customDays,
-    freezeDates
+    freezeDates,
+    undefined,
+    habit.intervalDays,
+    getHabitStartDate(habit)
   )
 
   await db.habits.update(habitId, {
@@ -155,6 +158,49 @@ async function _recalculateStreak(habitId: number): Promise<void> {
     bestStreak: Math.max(habit.bestStreak, result.bestStreak),
     lastCompletedDate: result.lastCompletedDate,
   })
+}
+
+/**
+ * Mark a habit as completed for a given date (idempotent — won't toggle off if already done).
+ * Used when a timed habit finishes its countdown.
+ */
+export async function completeHabitForDate(
+  habitId: number,
+  date: string,
+  targetCount: number = 1
+): Promise<boolean> {
+  const today = getTodayLocal()
+  if (date > today) return false
+
+  await db.transaction('rw', db.habits, db.habitEntries, db.streakFreezes, async () => {
+    const existing = await db.habitEntries
+      .where('[habitId+date]')
+      .equals([habitId, date])
+      .first()
+
+    if (!existing) {
+      await db.habitEntries.add({
+        habitId,
+        date,
+        currentCount: Math.max(1, targetCount),
+        targetCount: Math.max(1, targetCount),
+        isCompleted: true,
+        completedAt: Date.now(),
+        notes: null,
+      })
+    } else if (!existing.isCompleted) {
+      await db.habitEntries.put({
+        ...existing,
+        currentCount: Math.max(existing.targetCount, targetCount, 1),
+        isCompleted: true,
+        completedAt: Date.now(),
+      })
+    }
+
+    await _recalculateStreak(habitId)
+  })
+
+  return true
 }
 
 /** Recalculate streaks for all active habits so stored streaks never go stale across day boundaries. */

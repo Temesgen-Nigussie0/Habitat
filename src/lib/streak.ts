@@ -84,16 +84,78 @@ export function getAppStartDate(
   return earliest
 }
 
+/** Returns the calendar-day difference (dateB - dateA) safely immune to DST shifts. */
+export function diffCalendarDays(dateA: string, dateB: string): number {
+  const [y1, m1, d1] = dateA.split('-').map(Number)
+  const [y2, m2, d2] = dateB.split('-').map(Number)
+  const utcA = Date.UTC(y1, m1 - 1, d1)
+  const utcB = Date.UTC(y2, m2 - 1, d2)
+  return Math.round((utcB - utcA) / 86400000)
+}
+
+/** Returns the local yyyy-MM-dd start date for a habit (falls back to createdAt). */
+export function getHabitStartDate(habit: {
+  startDate?: string | null
+  createdAt?: number
+}): string {
+  if (habit.startDate && /^\d{4}-\d{2}-\d{2}$/.test(habit.startDate)) {
+    return habit.startDate
+  }
+  if (habit.createdAt && Number.isFinite(habit.createdAt)) {
+    return formatLocalDate(new Date(habit.createdAt))
+  }
+  return getTodayLocal()
+}
+
+const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/** Returns a concise human-readable frequency label for display on cards/modals. */
+export function formatHabitFrequency(habit: {
+  frequency: string
+  customDays?: string
+  intervalDays?: number | null
+}): string {
+  switch (habit.frequency) {
+    case 'DAILY':
+      return 'Every day'
+    case 'WEEKDAYS':
+      return 'Weekdays'
+    case 'WEEKENDS':
+      return 'Weekends'
+    case 'INTERVAL': {
+      const n = Math.max(1, Math.min(6, habit.intervalDays ?? 2))
+      return n === 1 ? 'Every day' : `Every ${n} days`
+    }
+    case 'CUSTOM': {
+      const days = (habit.customDays ?? '')
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n) && n >= 0 && n <= 6)
+      if (days.length === 0) return 'Custom'
+      if (days.length === 7) return 'Every day'
+      // Sort Mon..Sun for readability
+      const ordered = [...new Set(days)].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
+      return ordered.map((d) => SHORT_DAY_NAMES[d]).join(', ')
+    }
+    default:
+      return 'Every day'
+  }
+}
+
 /**
  * Returns true if the habit is scheduled on the given date string.
- * @param dateStr  Local yyyy-MM-dd
- * @param frequency  DAILY | WEEKDAYS | WEEKENDS | CUSTOM
- * @param customDays  Comma-separated day-of-week numbers (0=Sun … 6=Sat)
+ * @param dateStr      Local yyyy-MM-dd
+ * @param frequency    DAILY | WEEKDAYS | WEEKENDS | CUSTOM | INTERVAL
+ * @param customDays   Comma-separated day-of-week numbers (0=Sun … 6=Sat)
+ * @param intervalDays Number of days interval (1–6) when frequency === 'INTERVAL'
+ * @param startDate    Anchor start date (yyyy-MM-dd) when frequency === 'INTERVAL'
  */
 export function isHabitScheduledOn(
   dateStr: string,
   frequency: string,
-  customDays: string
+  customDays: string,
+  intervalDays?: number | null,
+  startDate?: string | null
 ): boolean {
   const dow = parseLocalDate(dateStr).getDay() // 0=Sun … 6=Sat
   switch (frequency) {
@@ -105,8 +167,21 @@ export function isHabitScheduledOn(
       return dow === 0 || dow === 6
     case 'CUSTOM': {
       if (!customDays) return false
-      const days = customDays.split(',').map(s => parseInt(s.trim(), 10))
+      const days = customDays
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n))
       return days.includes(dow)
+    }
+    case 'INTERVAL': {
+      const step = Math.max(1, Math.min(6, intervalDays ?? 2))
+      const anchor =
+        startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate)
+          ? startDate
+          : getTodayLocal()
+      const diff = diffCalendarDays(anchor, dateStr)
+      if (diff < 0) return false
+      return diff % step === 0
     }
     default:
       return true
@@ -127,7 +202,9 @@ export function calculateStreak(
   frequency: string = 'DAILY',
   customDays: string = '',
   freezeDates: string[] = [],
-  referenceDate?: string
+  referenceDate?: string,
+  intervalDays?: number | null,
+  startDate?: string | null
 ): StreakResult {
   const today = referenceDate ?? getTodayLocal()
 
@@ -139,7 +216,9 @@ export function calculateStreak(
   const freezeSet = new Set(freezeDates)
   const isCompletedToday = completedSet.has(today)
 
-  const lastCompletedDate = [...completedDates].sort().reverse()[0] ?? null
+  const sortedDates = [...completedDates].sort()
+  const lastCompletedDate = sortedDates[sortedDates.length - 1] ?? null
+  const earliestPossibleDate = [...completedDates, ...freezeDates].sort()[0]
 
   // ── Current streak ────────────────────────────────────────────────────────
   // Walk backwards from yesterday (or today if completed) counting consecutive
@@ -154,15 +233,11 @@ export function calculateStreak(
   if (isCompletedToday) {
     currentStreak = 1
     checkDate = offsetDate(today, -1)
-  } else {
-    // today not done — start looking at yesterday
-    // If yesterday was neither completed nor frozen (and was scheduled), streak is 0
-    // We will determine this in the loop below
   }
 
-  // Walk backwards
-  while (true) {
-    if (!isHabitScheduledOn(checkDate, frequency, customDays)) {
+  // Walk backwards (bounded by earliestPossibleDate so INTERVAL/CUSTOM can never loop forever)
+  while (earliestPossibleDate && checkDate >= earliestPossibleDate) {
+    if (!isHabitScheduledOn(checkDate, frequency, customDays, intervalDays, startDate)) {
       // Non-scheduled day — skip without penalty
       checkDate = offsetDate(checkDate, -1)
       continue
@@ -185,9 +260,7 @@ export function calculateStreak(
   // Walk through all sorted completed dates and find the longest consecutive run
   // (consecutive = only across scheduled days, with freeze gaps allowed).
 
-  const sortedDates = [...completedDates].sort()
   let bestStreak = currentStreak
-  let runStart = sortedDates[0]
   let runLength = 1
 
   for (let i = 1; i < sortedDates.length; i++) {
@@ -198,7 +271,10 @@ export function calculateStreak(
     let gap = 0
     let d = offsetDate(prev, 1)
     while (d < curr) {
-      if (isHabitScheduledOn(d, frequency, customDays) && !freezeSet.has(d)) {
+      if (
+        isHabitScheduledOn(d, frequency, customDays, intervalDays, startDate) &&
+        !freezeSet.has(d)
+      ) {
         gap++
       }
       d = offsetDate(d, 1)
@@ -210,7 +286,6 @@ export function calculateStreak(
     } else {
       // Gap found — record and restart
       bestStreak = Math.max(bestStreak, runLength)
-      runStart = curr
       runLength = 1
     }
   }

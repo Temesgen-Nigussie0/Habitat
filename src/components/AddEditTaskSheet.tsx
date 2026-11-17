@@ -5,6 +5,7 @@ import type { Task } from '../db/types'
 import { TASK_CATEGORIES, TASK_PRIORITIES } from '../lib/tasks'
 import { getTodayLocal } from '../lib/streak'
 import { scheduleTaskReminder } from '../lib/notifications'
+import { useTasks } from '../db/hooks'
 
 interface AddEditTaskSheetProps {
   isOpen: boolean
@@ -38,6 +39,7 @@ export function AddEditTaskSheet({
 }: AddEditTaskSheetProps) {
   const prefersReducedMotion = useReducedMotion()
   const isEditing = Boolean(taskToEdit)
+  const existingTasks = useTasks() ?? []
 
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
@@ -100,6 +102,14 @@ export function AddEditTaskSheet({
     const cleanTitle = title.trim()
     if (!cleanTitle) {
       setError('Please enter a task title')
+      return
+    }
+    const normalized = cleanTitle.toLowerCase()
+    const duplicate = existingTasks.some(
+      (t) => t.id !== taskToEdit?.id && t.title.trim().toLowerCase() === normalized
+    )
+    if (duplicate) {
+      setError('A task with this exact name already exists.')
       return
     }
     if (isSaving) return

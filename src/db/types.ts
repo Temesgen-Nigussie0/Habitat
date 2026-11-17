@@ -14,10 +14,18 @@ export interface Habit {
   unit: string
   /** Morning | Afternoon | Evening | Anytime */
   timeOfDay: string
-  /** DAILY | WEEKDAYS | WEEKENDS | CUSTOM */
+  /** DAILY | WEEKDAYS | WEEKENDS | CUSTOM | INTERVAL */
   frequency: string
   /** Comma-separated day numbers (0=Sun … 6=Sat) used when frequency === 'CUSTOM' */
   customDays: string
+  /** Repeat every N days (1–6) when frequency === 'INTERVAL' */
+  intervalDays?: number | null
+  /** Local yyyy-MM-dd date the habit starts from (used as anchor for INTERVAL) */
+  startDate?: string | null
+  /** Whether this habit uses a live countdown timer (Play/Pause + focus screen) */
+  hasTimer?: boolean
+  /** Duration in minutes when hasTimer is true */
+  timerMinutes?: number | null
   currentStreak: number
   bestStreak: number
   lastCompletedDate: string | null

@@ -12,6 +12,7 @@ import SwUpdateBanner from './components/SwUpdateBanner'
 import { useUserProfileStatus } from './db/hooks'
 import { db } from './db/db'
 import { initPendingTaskReminders } from './lib/notifications'
+import { HabitTimerProvider } from './context/HabitTimerContext'
 
 function BrandedSplash() {
   return (
@@ -127,7 +128,9 @@ export default function App() {
         <StorageBlockedNotice />
       ) : (
         <BrowserRouter>
-          <AppRoutes />
+          <HabitTimerProvider>
+            <AppRoutes />
+          </HabitTimerProvider>
         </BrowserRouter>
       )}
       <SwUpdateBanner />

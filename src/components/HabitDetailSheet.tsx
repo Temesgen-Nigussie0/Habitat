@@ -1,16 +1,25 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Flame, Trophy, Edit3, Trash2 } from 'lucide-react'
+import { X, Flame, Trophy, Edit3, Trash2, Play } from 'lucide-react'
 import type { Habit, HabitEntry } from '../db/types'
 import { HabitIcon } from '../lib/habitIcons'
 import { deleteHabit } from '../db/actions'
-import { getTodayLocal, offsetDate, isHabitScheduledOn } from '../lib/streak'
+import {
+  formatHabitFrequency,
+  getHabitStartDate,
+  getTodayLocal,
+  offsetDate,
+  isHabitScheduledOn,
+} from '../lib/streak'
+import { formatDurationHuman } from '../lib/habitTimer'
 
 interface HabitDetailSheetProps {
   habit: Habit | null
   entries: HabitEntry[]
   onClose: () => void
   onEdit: (habit: Habit) => void
+  onOpenTimer?: (habit: Habit) => void
+  canStartTimer?: boolean
 }
 
 export default function HabitDetailSheet({
@@ -18,6 +27,8 @@ export default function HabitDetailSheet({
   entries,
   onClose,
   onEdit,
+  onOpenTimer,
+  canStartTimer = false,
 }: HabitDetailSheetProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -31,11 +42,18 @@ export default function HabitDetailSheet({
   const totalLogged = completedDatesSet.size
 
   const today = getTodayLocal()
+  const habitStartDate = habit ? getHabitStartDate(habit) : today
   const last30Days = habit
     ? Array.from({ length: 30 }, (_, idx) => {
         const d = offsetDate(today, -(29 - idx))
         const done = completedDatesSet.has(d)
-        const scheduled = isHabitScheduledOn(d, habit.frequency, habit.customDays)
+        const scheduled = isHabitScheduledOn(
+          d,
+          habit.frequency,
+          habit.customDays,
+          habit.intervalDays,
+          habitStartDate
+        )
         return { date: d, done, scheduled }
       })
     : []
@@ -55,7 +73,7 @@ export default function HabitDetailSheet({
   return (
     <AnimatePresence>
       {habit && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -104,9 +122,12 @@ export default function HabitDetailSheet({
             <h2 className="text-[22px] font-bold text-text-primary mt-4 leading-snug">
               {habit.name}
             </h2>
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className="px-2 py-0.5 rounded-md bg-border text-text-secondary text-xs font-medium">
                 {habit.category}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-orange/15 text-orange text-xs font-semibold">
+                {formatHabitFrequency(habit)}
               </span>
               <span className="text-text-tertiary text-[13px]">• {habit.timeOfDay}</span>
             </div>
@@ -147,7 +168,9 @@ export default function HabitDetailSheet({
                   DAILY GOAL
                 </div>
                 <p className="text-lg font-bold text-orange mt-1">
-                  {habit.targetCount} {habit.unit}
+                  {habit.hasTimer && (habit.timerMinutes ?? 0) > 0
+                    ? formatDurationHuman(habit.timerMinutes ?? 15)
+                    : `${habit.targetCount} ${habit.unit}`}
                 </p>
               </div>
             </div>
@@ -206,27 +229,42 @@ export default function HabitDetailSheet({
                 </div>
               </div>
             ) : (
-              <div className="flex gap-3 mt-5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose()
-                    onEdit(habit)
-                  }}
-                  className="flex-1 min-h-[48px] rounded-[14px] bg-elevated border border-border text-text-primary font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
-                >
-                  <Edit3 size={16} />
-                  <span>Edit</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="flex-1 min-h-[48px] rounded-[14px] text-red font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
-                  style={{ backgroundColor: 'rgba(255,69,58,0.14)' }}
-                >
-                  <Trash2 size={16} />
-                  <span>Delete</span>
-                </button>
+              <div className="mt-5 space-y-2.5">
+                {habit.hasTimer && (habit.timerMinutes ?? 0) > 0 && canStartTimer && onOpenTimer && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose()
+                      onOpenTimer(habit)
+                    }}
+                    className="w-full min-h-[48px] rounded-[14px] bg-[#FF6A00] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#FF6A00]/25 active:scale-[0.98]"
+                  >
+                    <Play size={16} fill="#FFFFFF" />
+                    <span>Open Focus Timer ({formatDurationHuman(habit.timerMinutes ?? 15)})</span>
+                  </button>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose()
+                      onEdit(habit)
+                    }}
+                    className="flex-1 min-h-[48px] rounded-[14px] bg-elevated border border-border text-text-primary font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
+                  >
+                    <Edit3 size={16} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex-1 min-h-[48px] rounded-[14px] text-red font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
+                    style={{ backgroundColor: 'rgba(255,69,58,0.14)' }}
+                  >
+                    <Trash2 size={16} />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             )}
           </motion.div>

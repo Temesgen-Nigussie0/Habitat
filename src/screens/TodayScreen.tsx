@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import {
+  Bell,
   Lock,
   Flame,
   Grid2X2,
@@ -9,7 +10,7 @@ import {
   CheckCircle2,
   X,
 } from 'lucide-react'
-import { startOfWeek, addDays, differenceInCalendarDays, format } from 'date-fns'
+import { addDays, differenceInCalendarDays, format } from 'date-fns'
 import Screen from '../components/Screen'
 import SectionLabel from '../components/SectionLabel'
 import ProgressBar from '../components/ProgressBar'
@@ -18,8 +19,10 @@ import HabitCard from '../components/HabitCard'
 import HabitStackCircuitView from '../components/HabitStackCircuitView'
 import AddEditHabitSheet from '../components/AddEditHabitSheet'
 import HabitDetailSheet from '../components/HabitDetailSheet'
+import HabitTimerModal from '../components/HabitTimerModal'
 import DailyStreakModal from '../components/DailyStreakModal'
 import ParticleCelebration from '../components/ParticleCelebration'
+import { useHabitTimers } from '../context/HabitTimerContext'
 import {
   useHabits,
   useHabitEntries,
@@ -37,6 +40,7 @@ import {
   calculateOverallDailyStreak,
   formatLocalDate,
   getAppStartDate,
+  getHabitStartDate,
   getTodayLocal,
   isHabitScheduledOn,
   parseLocalDate,
@@ -63,11 +67,19 @@ export default function TodayScreen() {
   const [addEditOpen, setAddEditOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null)
+  const [timerModalHabitId, setTimerModalHabitId] = useState<number | null>(null)
   const [streakModalOpen, setStreakModalOpen] = useState(false)
   const [isLevelUpModal, setIsLevelUpModal] = useState(false)
   const [visitedDates, setVisitedDates] = useState<string[]>(() =>
     recordDailyVisit(todayStr)
   )
+
+  const {
+    getSnapshot,
+    toggleTimer,
+    completionNotice,
+    dismissCompletionNotice,
+  } = useHabitTimers()
 
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -115,12 +127,12 @@ export default function TodayScreen() {
     return getAppStartDate(profile?.joinedAt, earliestEntryDate)
   }, [profile?.joinedAt, earliestEntryDate])
 
-  // Days starting from the day user started the app up to 6 days after today (future locked)
+  // Days starting from the day user started the app up to 10 upcoming days (previewable, locked for edits)
   const weekDays = useMemo(() => {
     const startD = parseLocalDate(appStartDate)
     const todayD = parseLocalDate(todayStr)
     const diffDays = Math.max(0, differenceInCalendarDays(todayD, startD))
-    const totalDays = diffDays + 1 + 6
+    const totalDays = diffDays + 1 + 10
 
     return Array.from({ length: totalDays }, (_, i) => {
       const d = addDays(startD, i)
@@ -150,13 +162,24 @@ export default function TodayScreen() {
     return new Map((entriesForDate ?? []).map((e) => [e.habitId, e]))
   }, [entriesForDate])
 
-  // Habits scheduled for selectedDate
+  // Habits scheduled for selectedDate (supports DAILY, WEEKDAYS, WEEKENDS, CUSTOM, INTERVAL)
   const scheduledHabits = useMemo(() => {
     if (!habits) return []
     return habits.filter((h) =>
-      isHabitScheduledOn(selectedDate, h.frequency, h.customDays)
+      isHabitScheduledOn(
+        selectedDate,
+        h.frequency,
+        h.customDays,
+        h.intervalDays,
+        getHabitStartDate(h)
+      )
     )
   }, [habits, selectedDate])
+
+  const timerModalHabit = useMemo(() => {
+    if (timerModalHabitId === null || !habits) return null
+    return habits.find((h) => h.id === timerModalHabitId) ?? null
+  }, [timerModalHabitId, habits])
 
   // Progress counts
   const totalScheduled = scheduledHabits.length
@@ -237,7 +260,7 @@ export default function TodayScreen() {
     if (isPast) {
       setLockedToast("You missed it, buddy! ⏳ Time travel isn't invented yet — focus on winning today!")
     } else {
-      setLockedToast('Future days are locked until they arrive.')
+      setLockedToast("Whoa, slow down time traveler! 🚀 That day hasn't arrived yet — crush today first!")
     }
   }
 
@@ -265,14 +288,56 @@ export default function TodayScreen() {
     await incrementHabitCounter(habit.id, selectedDate, habit.targetCount)
   }
 
+  const handleToggleTimer = (habit: Habit) => {
+    if (!habit.id) return
+    if (isLocked) {
+      showLockedMessage()
+      return
+    }
+    toggleTimer(habit)
+  }
+
   const userName = profile?.userName || 'Alex'
 
   return (
-    <Screen noNav={addEditOpen || streakModalOpen}>
+    <Screen noNav={addEditOpen || streakModalOpen || Boolean(detailHabit) || Boolean(timerModalHabit)}>
       <ParticleCelebration
         active={showCelebration}
         onComplete={() => setShowCelebration(false)}
       />
+
+      {/* Timer Completion Chime Banner */}
+      {completionNotice && (
+        <div
+          className="fixed left-5 right-5 z-[80] rounded-[16px] bg-[#16161C] border px-4 py-3 flex items-center justify-between gap-2.5 shadow-xl shadow-orange/20"
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 12px)',
+            borderColor: '#FF6A00',
+          }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-[#FF6A00]/20 flex items-center justify-center flex-shrink-0">
+              <Bell size={16} className="text-[#FF6A00]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">
+                {completionNotice.habitName} complete! 🎉
+              </p>
+              <p className="text-[11px] text-[#A1A1AA]">
+                {completionNotice.minutes} min focus session logged
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={dismissCompletionNotice}
+            aria-label="Dismiss timer notice"
+            className="p-1 text-text-secondary"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       {/* Locked Date Toast */}
       {lockedToast && (
@@ -433,14 +498,8 @@ export default function TodayScreen() {
                 key={d.dateStr}
                 ref={selected ? selectedDayRef : undefined}
                 type="button"
-                onClick={() => {
-                  if (d.isFuture) {
-                    setLockedToast('Future days are locked until they arrive.')
-                  } else {
-                    setSelectedDate(d.dateStr)
-                  }
-                }}
-                aria-label={d.isFuture ? `${d.dateStr} locked` : d.dateStr}
+                onClick={() => setSelectedDate(d.dateStr)}
+                aria-label={d.isFuture ? `${d.dateStr} upcoming` : d.dateStr}
                 className="min-w-[46px] flex-1 flex flex-col items-center justify-center rounded-[14px] py-2 gap-0.5 transition-colors shrink-0"
                 style={{
                   backgroundColor: selected
@@ -456,6 +515,7 @@ export default function TodayScreen() {
                   borderWidth: selected ? 2 : 1,
                   borderStyle: 'solid',
                   minHeight: 56,
+                  opacity: d.isFuture && !selected ? 0.72 : 1,
                 }}
               >
                 <span
@@ -470,22 +530,20 @@ export default function TodayScreen() {
                 >
                   {d.letter}
                 </span>
-                {d.isFuture ? (
-                  <Lock size={13} color="#6E6E7A" className="my-0.5" />
-                ) : (
-                  <span
-                    className="text-sm font-bold"
-                    style={{
-                      color: selected
-                        ? isToday
-                          ? '#FFFFFF'
-                          : '#FF6A00'
+                <span
+                  className="text-sm font-bold"
+                  style={{
+                    color: selected
+                      ? isToday
+                        ? '#FFFFFF'
+                        : '#FF6A00'
+                      : d.isFuture
+                        ? '#8E8E93'
                         : '#F7F7FA',
-                    }}
-                  >
-                    {d.num}
-                  </span>
-                )}
+                  }}
+                >
+                  {d.num}
+                </span>
               </button>
             )
           })}
@@ -504,13 +562,15 @@ export default function TodayScreen() {
                   : `${completedScheduledCount} of ${totalScheduled} completed`}
               </p>
               <p className="text-text-secondary text-sm mt-0.5">
-                {isLocked
-                  ? 'Habits are locked until this day arrives'
-                  : totalScheduled === 0
-                    ? 'Tap the + button to add your first habit'
-                    : completionPercent >= 100
-                      ? 'Peak momentum maintained today'
-                      : `${completionPercent}% of daily target achieved`}
+                {isFutureDate
+                  ? 'Upcoming day preview — unlocks when it arrives'
+                  : isPast
+                    ? 'Past day — view-only history'
+                    : totalScheduled === 0
+                      ? 'Tap the + button to add your first habit'
+                      : completionPercent >= 100
+                        ? 'Peak momentum maintained today'
+                        : `${completionPercent}% of daily target achieved`}
               </p>
             </div>
             <div
@@ -532,21 +592,23 @@ export default function TodayScreen() {
             </div>
           </div>
           <ProgressBar
-            value={isLocked ? 0 : completionPercent / 100}
+            value={isFutureDate ? 0 : completionPercent / 100}
             height={5}
             color={completionPercent >= 100 ? '#30D158' : '#FF6A00'}
           />
         </div>
 
         {viewMode === 'CIRCUIT' ? (
-          <HabitStackCircuitView
-            habits={scheduledHabits}
-            entryMap={entryMap}
-            isLocked={isLocked}
-            onToggleHabit={handleToggleHabit}
-            onOpenDetail={(h) => setDetailHabit(h)}
-            onLockedClick={showLockedMessage}
-          />
+          <div className={isLocked ? 'opacity-60' : ''}>
+            <HabitStackCircuitView
+              habits={scheduledHabits}
+              entryMap={entryMap}
+              isLocked={isLocked}
+              onToggleHabit={handleToggleHabit}
+              onOpenDetail={(h) => setDetailHabit(h)}
+              onLockedClick={showLockedMessage}
+            />
+          </div>
         ) : (
           <>
             {/* Time-of-day filter pills */}
@@ -593,15 +655,18 @@ export default function TodayScreen() {
                 </p>
               </div>
             ) : (
-              <div className={`space-y-3 pb-4 ${isPast ? 'opacity-65' : ''}`}>
+              <div className={`space-y-3 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
                 {activeHabits.map((habit) => (
                   <HabitCard
                     key={habit.id}
                     habit={habit}
                     entry={entryMap.get(habit.id!)}
                     isLocked={isLocked}
+                    timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
                     onToggle={() => handleToggleHabit(habit)}
                     onIncrement={() => handleIncrementHabit(habit)}
+                    onToggleTimer={() => handleToggleTimer(habit)}
+                    onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
                     onOpenDetail={() => setDetailHabit(habit)}
                     onLockedClick={showLockedMessage}
                   />
@@ -639,8 +704,11 @@ export default function TodayScreen() {
                             habit={habit}
                             entry={entryMap.get(habit.id!)}
                             isLocked={isLocked}
+                            timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
                             onToggle={() => handleToggleHabit(habit)}
                             onIncrement={() => handleIncrementHabit(habit)}
+                            onToggleTimer={() => handleToggleTimer(habit)}
+                            onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
                             onOpenDetail={() => setDetailHabit(habit)}
                             onLockedClick={showLockedMessage}
                           />
@@ -655,14 +723,16 @@ export default function TodayScreen() {
         )}
       </div>
 
-      {/* Floating + button */}
-      <FAB
-        onClick={() => {
-          setEditingHabit(null)
-          setAddEditOpen(true)
-        }}
-        aria-label="Add habit"
-      />
+      {/* Floating + button (hidden while any modal/sheet is open) */}
+      {!addEditOpen && !streakModalOpen && !detailHabit && !timerModalHabit && (
+        <FAB
+          onClick={() => {
+            setEditingHabit(null)
+            setAddEditOpen(true)
+          }}
+          aria-label="Add habit"
+        />
+      )}
 
       {/* Add / Edit Bottom Sheet */}
       <AddEditHabitSheet
@@ -683,6 +753,15 @@ export default function TodayScreen() {
           setEditingHabit(h)
           setAddEditOpen(true)
         }}
+        canStartTimer={!isLocked && !(detailHabit?.id && entryMap.get(detailHabit.id)?.isCompleted)}
+        onOpenTimer={(h) => setTimerModalHabitId(h.id ?? null)}
+      />
+
+      {/* Fullscreen Focus Timer Modal (Image 3 Style) */}
+      <HabitTimerModal
+        habit={timerModalHabit}
+        onClose={() => setTimerModalHabitId(null)}
+        onOpenDetail={(h) => setDetailHabit(h)}
       />
 
       {/* Daily Streak Status Modal */}

@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import type { BossChallenge, Habit, HabitEntry, Task } from '../db/types'
 import {
   formatLocalDate,
+  getHabitStartDate,
   getTodayLocal,
   isHabitScheduledOn,
   offsetDate,
@@ -28,7 +29,15 @@ export function getHabitConsistencyRate7Days(
   for (let i = 0; i < 7; i++) {
     const dateStr = offsetDate(referenceDate, -i)
     for (const habit of activeHabits) {
-      if (isHabitScheduledOn(dateStr, habit.frequency, habit.customDays)) {
+      if (
+        isHabitScheduledOn(
+          dateStr,
+          habit.frequency,
+          habit.customDays,
+          habit.intervalDays,
+          getHabitStartDate(habit)
+        )
+      ) {
         expected++
         if (habit.id !== undefined && completedSet.has(`${habit.id}:${dateStr}`)) {
           actual++
@@ -228,7 +237,15 @@ export function getProductionDomains(
     })
 
   const scheduledTodayHabits = habits.filter(
-    (h) => !h.isArchived && isHabitScheduledOn(referenceDate, h.frequency, h.customDays)
+    (h) =>
+      !h.isArchived &&
+      isHabitScheduledOn(
+        referenceDate,
+        h.frequency,
+        h.customDays,
+        h.intervalDays,
+        getHabitStartDate(h)
+      )
   )
 
   const dailyHabits =

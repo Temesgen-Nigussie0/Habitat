@@ -1,5 +1,5 @@
 import type { Habit, HabitEntry } from '../db/types'
-import { isHabitScheduledOn, getTodayLocal } from './streak'
+import { isHabitScheduledOn, getHabitStartDate, getTodayLocal } from './streak'
 
 /**
  * Daily completion percentage for a given date.
@@ -12,7 +12,9 @@ export function getDailyCompletionPercent(
   date: string
 ): number {
   const scheduled = habits.filter(
-    h => !h.isArchived && isHabitScheduledOn(date, h.frequency, h.customDays)
+    h =>
+      !h.isArchived &&
+      isHabitScheduledOn(date, h.frequency, h.customDays, h.intervalDays, getHabitStartDate(h))
   )
   if (scheduled.length === 0) return 0
 

@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest'
 import {
   calculateOverallDailyStreak,
   calculateStreak,
+  formatHabitFrequency,
   getAppStartDate,
   getTodayLocal,
   getVisitedDates,
@@ -9,6 +10,11 @@ import {
   isHabitScheduledOn,
   recordDailyVisit,
 } from '../lib/streak'
+import {
+  computeTimerSnapshot,
+  formatDurationHuman,
+  formatTimerClock,
+} from '../lib/habitTimer'
 import { getDailyCompletionPercent, getCounterDisplay } from '../lib/stats'
 import type { Habit, HabitEntry } from '../db/types'
 
@@ -415,5 +421,88 @@ describe('calculateOverallDailyStreak', () => {
     recordDailyVisit('2026-11-17')
 
     expect(getVisitedDates()).toEqual(['2026-11-15', '2026-11-16', '2026-11-17'])
+  })
+})
+
+// ─── INTERVAL frequency & Timer engine ───────────────────────────────────────
+describe('INTERVAL frequency scheduling & streaks', () => {
+  test('2-day interval schedules every 2 days from startDate and never before startDate', () => {
+    const start = '2026-11-17'
+    expect(isHabitScheduledOn('2026-11-16', 'INTERVAL', '', 2, start)).toBe(false)
+    expect(isHabitScheduledOn('2026-11-17', 'INTERVAL', '', 2, start)).toBe(true)
+    expect(isHabitScheduledOn('2026-11-18', 'INTERVAL', '', 2, start)).toBe(false)
+    expect(isHabitScheduledOn('2026-11-19', 'INTERVAL', '', 2, start)).toBe(true)
+    expect(isHabitScheduledOn('2026-11-20', 'INTERVAL', '', 2, start)).toBe(false)
+    expect(isHabitScheduledOn('2026-11-21', 'INTERVAL', '', 2, start)).toBe(true)
+  })
+
+  test('6-day interval schedules accurately from startDate', () => {
+    const start = '2026-11-15'
+    expect(isHabitScheduledOn('2026-11-15', 'INTERVAL', '', 6, start)).toBe(true)
+    expect(isHabitScheduledOn('2026-11-20', 'INTERVAL', '', 6, start)).toBe(false)
+    expect(isHabitScheduledOn('2026-11-21', 'INTERVAL', '', 6, start)).toBe(true)
+    expect(isHabitScheduledOn('2026-11-27', 'INTERVAL', '', 6, start)).toBe(true)
+  })
+
+  test('calculateStreak handles INTERVAL without infinite loops and counts consecutive interval hits', () => {
+    const start = '2026-11-15'
+    const res = calculateStreak(
+      ['2026-11-15', '2026-11-17', '2026-11-19'],
+      'INTERVAL',
+      '',
+      [],
+      '2026-11-19',
+      2,
+      start
+    )
+    expect(res.currentStreak).toBe(3)
+    expect(res.bestStreak).toBe(3)
+  })
+
+  test('formatHabitFrequency formats all frequency types cleanly', () => {
+    expect(formatHabitFrequency({ frequency: 'DAILY' })).toBe('Every day')
+    expect(formatHabitFrequency({ frequency: 'WEEKDAYS' })).toBe('Weekdays')
+    expect(formatHabitFrequency({ frequency: 'WEEKENDS' })).toBe('Weekends')
+    expect(formatHabitFrequency({ frequency: 'INTERVAL', intervalDays: 3 })).toBe('Every 3 days')
+    expect(formatHabitFrequency({ frequency: 'CUSTOM', customDays: '1,3,5' })).toBe('Mon, Wed, Fri')
+  })
+})
+
+describe('Habit Timer Engine', () => {
+  test('computeTimerSnapshot tracks elapsed, remaining, progress, and completion drift-free', () => {
+    const startedAt = 1_000_000
+    const runningState = {
+      habitId: 1,
+      habitName: 'Meditate',
+      dateStr: '2026-11-17',
+      targetSeconds: 900, // 15 min
+      elapsedSeconds: 300, // 5 min prior
+      isRunning: true,
+      startedAt,
+      hasStarted: true,
+    }
+    // 5 more minutes elapsed -> 10 min elapsed, 5 min remaining
+    const mid = computeTimerSnapshot(1, 15, runningState, startedAt + 300_000)
+    expect(Math.round(mid.elapsedSeconds)).toBe(600)
+    expect(Math.round(mid.remainingSeconds)).toBe(300)
+    expect(mid.progress).toBeCloseTo(2 / 3, 2)
+    expect(mid.isRunning).toBe(true)
+    expect(mid.isFinished).toBe(false)
+
+    // 10 more minutes elapsed -> finished
+    const end = computeTimerSnapshot(1, 15, runningState, startedAt + 600_000)
+    expect(end.remainingSeconds).toBe(0)
+    expect(end.progress).toBe(1)
+    expect(end.isFinished).toBe(true)
+  })
+
+  test('formatTimerClock and formatDurationHuman format values cleanly', () => {
+    expect(formatTimerClock(600)).toBe('10:00')
+    expect(formatTimerClock(65)).toBe('01:05')
+    expect(formatTimerClock(3661)).toBe('1:01:01')
+    expect(formatDurationHuman(15)).toBe('15 minutes')
+    expect(formatDurationHuman(60)).toBe('1 hour')
+    expect(formatDurationHuman(120)).toBe('2 hours')
+    expect(formatDurationHuman(90)).toBe('1h 30m')
   })
 })

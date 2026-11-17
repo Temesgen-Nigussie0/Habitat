@@ -1,15 +1,31 @@
 import { useState, useRef } from 'react'
-import { Check, ChevronDown, ChevronUp, Droplets, Flame, Lock, Plus, Info } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Droplets,
+  Flame,
+  Lock,
+  Pause,
+  Play,
+  Plus,
+  Info,
+} from 'lucide-react'
 import type { Habit, HabitEntry } from '../db/types'
 import { HabitIcon } from '../lib/habitIcons'
+import { formatHabitFrequency } from '../lib/streak'
+import { formatTimerSubtitle, type HabitTimerSnapshot } from '../lib/habitTimer'
 import ProgressRing from './ProgressRing'
 
 interface HabitCardProps {
   habit: Habit
   entry?: HabitEntry
   isLocked: boolean
+  timerSnapshot?: HabitTimerSnapshot
   onToggle: () => void
   onIncrement: () => void
+  onToggleTimer?: () => void
+  onOpenTimer?: () => void
   onOpenDetail: () => void
   onLockedClick: () => void
 }
@@ -18,8 +34,11 @@ export default function HabitCard({
   habit,
   entry,
   isLocked,
+  timerSnapshot,
   onToggle,
   onIncrement,
+  onToggleTimer,
+  onOpenTimer,
   onOpenDetail,
   onLockedClick,
 }: HabitCardProps) {
@@ -38,6 +57,10 @@ export default function HabitCard({
   const isCompleted = entry?.isCompleted === true
   const currentCount = entry?.currentCount ?? 0
   const targetCount = Math.max(1, habit.targetCount)
+  const isTimedHabit = Boolean(habit.hasTimer && (habit.timerMinutes ?? 0) > 0)
+  const isTimerActive = Boolean(isTimedHabit && !isLocked && !isCompleted && timerSnapshot?.hasStarted)
+  const timerProgress = isTimerActive ? timerSnapshot?.progress ?? 0 : 0
+  const isTimerRunning = Boolean(isTimerActive && timerSnapshot?.isRunning)
   const isWaterHabit =
     habit.iconName.toLowerCase() === 'water' ||
     habit.name.toLowerCase().includes('water')
@@ -95,12 +118,17 @@ export default function HabitCard({
     if (p.horizontal) {
       if (finalX >= 60) {
         if (isLocked) onLockedClick()
+        else if (isTimedHabit && !isCompleted && onToggleTimer) onToggleTimer()
         else onToggle()
       } else if (finalX <= -60) {
         onOpenDetail()
       }
     } else if (!p.moved) {
-      onOpenDetail()
+      if (isTimerActive && onOpenTimer) {
+        onOpenTimer()
+      } else {
+        onOpenDetail()
+      }
     }
   }
 
@@ -140,23 +168,49 @@ export default function HabitCard({
         onPointerMove={handlePointerMove}
         onPointerUp={() => finishPointer(false)}
         onPointerCancel={() => finishPointer(true)}
-        className="relative rounded-[20px] border p-4 select-none"
+        className="relative rounded-[20px] border p-4 select-none overflow-hidden"
         style={{
           WebkitTouchCallout: 'none',
           touchAction: 'pan-y',
           backgroundColor: '#1B1B24',
-          borderColor: isCompleted ? 'rgba(255,106,0,0.45)' : '#22222E',
+          borderColor: isTimerRunning
+            ? 'rgba(255,106,0,0.75)'
+            : isCompleted || isTimerActive
+              ? 'rgba(255,106,0,0.45)'
+              : '#22222E',
           transform: `translateX(${swipeX}px)`,
           transition: isSwiping ? 'none' : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
-        <div className="flex items-center gap-3">
+        {/* Live In-Card Loading Progress Fill for Timed Habits (Image 2 Style) */}
+        {isTimerActive && (
+          <div
+            aria-hidden
+            className="absolute inset-y-0 left-0 pointer-events-none"
+            style={{
+              width: `${Math.min(100, Math.max(2, timerProgress * 100))}%`,
+              background:
+                'linear-gradient(90deg, rgba(255,106,0,0.38) 0%, rgba(255,132,0,0.28) 82%, rgba(255,159,10,0.44) 100%)',
+              borderRight:
+                timerProgress < 0.995
+                  ? '2px solid rgba(255,159,10,0.75)'
+                  : 'none',
+              transition: 'width 260ms linear',
+            }}
+          />
+        )}
+
+        <div className="relative z-10 flex items-center gap-3">
           {/* Orange Icon Chip */}
           <div
             className="w-14 h-14 rounded-[14px] flex items-center justify-center flex-shrink-0 border"
             style={{
-              backgroundColor: 'rgba(255,106,0,0.14)',
-              borderColor: 'rgba(255,106,0,0.3)',
+              backgroundColor: isTimerActive
+                ? 'rgba(255,106,0,0.24)'
+                : 'rgba(255,106,0,0.14)',
+              borderColor: isTimerActive
+                ? 'rgba(255,159,10,0.55)'
+                : 'rgba(255,106,0,0.3)',
             }}
           >
             <HabitIcon iconName={habit.iconName} color="#FF6A00" size={24} />
@@ -173,10 +227,29 @@ export default function HabitCard({
             >
               {habit.name}
             </p>
+
+            {/* Timed habit progress subtitle (like Image 2) */}
+            {isTimedHabit && timerSnapshot && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {isTimerRunning && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#FF9F0A] animate-pulse flex-shrink-0" />
+                )}
+                <p className="text-[12px] font-medium text-text-secondary truncate tabular-nums">
+                  {formatHabitFrequency(habit)}, {formatTimerSubtitle(timerSnapshot)}
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-elevated text-text-secondary border border-border">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-elevated/90 text-text-secondary border border-border">
                 {habit.category}
               </span>
+
+              {!isTimedHabit && habit.frequency !== 'DAILY' && (
+                <span className="text-[11px] font-medium text-orange/90">
+                  • {formatHabitFrequency(habit)}
+                </span>
+              )}
 
               {habit.timeOfDay !== 'Anytime' && (
                 <span className="text-[11px] text-text-tertiary">• {habit.timeOfDay}</span>
@@ -222,6 +295,51 @@ export default function HabitCard({
             >
               <Lock size={16} className="text-text-tertiary" />
             </button>
+          ) : isTimedHabit ? (
+            isCompleted ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggle()
+                }}
+                aria-label={`Undo ${habit.name}`}
+                className="w-11 h-11 rounded-full bg-orange flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
+              >
+                <Check size={20} color="#FFFFFF" strokeWidth={2.5} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleTimer?.()
+                }}
+                aria-label={isTimerRunning ? `Pause ${habit.name}` : `Start ${habit.name} timer`}
+                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
+              >
+                <ProgressRing
+                  value={timerProgress}
+                  size={46}
+                  strokeWidth={3.5}
+                  color="#FF6A00"
+                  trackColor="rgba(255,106,0,0.22)"
+                >
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                    style={{
+                      backgroundColor: isTimerRunning ? '#FF6A00' : '#14141A',
+                    }}
+                  >
+                    {isTimerRunning ? (
+                      <Pause size={16} color="#FFFFFF" fill="#FFFFFF" />
+                    ) : (
+                      <Play size={16} color="#FFFFFF" fill="#FFFFFF" className="ml-0.5" />
+                    )}
+                  </div>
+                </ProgressRing>
+              </button>
+            )
           ) : targetCount > 1 ? (
             <button
               type="button"
