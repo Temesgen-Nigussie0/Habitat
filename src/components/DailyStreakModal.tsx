@@ -25,6 +25,8 @@ interface DailyStreakModalProps {
   habitsScheduled?: number
   completionPercent: number
   isLevelUpMode?: boolean
+  activeDates?: Set<string>
+  freezeDates?: Set<string>
 }
 
 const MOTIVATIONAL_QUOTES = [
@@ -43,6 +45,8 @@ export default function DailyStreakModal({
   habitsDone,
   completionPercent,
   isLevelUpMode = false,
+  activeDates,
+  freezeDates,
 }: DailyStreakModalProps) {
   const todayStr = getTodayLocal()
   const [displayedStreak, setDisplayedStreak] = useState(
@@ -77,17 +81,19 @@ export default function DailyStreakModal({
       const dateStr = format(d, 'yyyy-MM-dd')
       const isToday = dateStr === todayStr
       const inFuture = isFuture(dateStr)
-      const isPastOrToday = !inFuture
+      const isChecked = activeDates
+        ? activeDates.has(dateStr) || Boolean(freezeDates?.has(dateStr))
+        : isToday && currentStreak > 0
       return {
         dateStr,
         label: format(d, 'EEE'),
         dayNum: format(d, 'd'),
         isToday,
         isFuture: inFuture,
-        isChecked: isPastOrToday && currentStreak > 0,
+        isChecked: !inFuture && isChecked,
       }
     })
-  }, [todayStr, currentStreak])
+  }, [todayStr, currentStreak, activeDates, freezeDates])
 
   return (
     <AnimatePresence>
@@ -132,7 +138,7 @@ export default function DailyStreakModal({
               </motion.h1>
 
               <p className="mt-0.5 text-[16px] font-bold text-white tracking-wide">
-                days streak
+                {displayedStreak === 1 ? 'day streak' : 'days streak'}
               </p>
 
               <p className="mt-1 text-[12px] text-[#A1A1AA] max-w-[290px] leading-snug">
@@ -157,7 +163,7 @@ export default function DailyStreakModal({
                             : 'bg-[#0D0D0E] text-[#636366] border border-[#242428]'
                       }`}
                     >
-                      {d.isChecked || d.isToday ? (
+                      {d.isChecked ? (
                         <Check className="h-3.5 w-3.5 stroke-[3]" />
                       ) : (
                         <span className="text-[11px] font-semibold text-[#8E8E93]">
@@ -192,7 +198,7 @@ export default function DailyStreakModal({
                       </span>
                     </div>
                     <p className="mt-1 text-[16px] font-extrabold text-[#F5F5F7]">
-                      {tasksDone} tasks done
+                      {tasksDone} {tasksDone === 1 ? 'task' : 'tasks'} done
                     </p>
                   </div>
 
@@ -205,7 +211,7 @@ export default function DailyStreakModal({
                       </span>
                     </div>
                     <p className="mt-1 text-[16px] font-extrabold text-[#F5F5F7]">
-                      {habitsDone} habits done
+                      {habitsDone} {habitsDone === 1 ? 'habit' : 'habits'} done
                     </p>
                   </div>
 
@@ -231,7 +237,8 @@ export default function DailyStreakModal({
                       </span>
                     </div>
                     <p className="mt-1 text-[16px] font-extrabold text-[#F5F5F7]">
-                      {Math.max(bestStreak, currentStreak)} days best
+                      {Math.max(bestStreak, currentStreak)}{' '}
+                      {Math.max(bestStreak, currentStreak) === 1 ? 'day' : 'days'} best
                     </p>
                   </div>
                 </div>

@@ -1,10 +1,13 @@
 import { describe, test, expect } from 'vitest'
 import {
+  calculateOverallDailyStreak,
   calculateStreak,
   getAppStartDate,
   getTodayLocal,
+  getVisitedDates,
   formatLocalDate,
   isHabitScheduledOn,
+  recordDailyVisit,
 } from '../lib/streak'
 import { getDailyCompletionPercent, getCounterDisplay } from '../lib/stats'
 import type { Habit, HabitEntry } from '../db/types'
@@ -352,5 +355,65 @@ describe('getAppStartDate', () => {
     localStorage.setItem('habitat_app_start_date', '2026-11-16')
     const startDate = getAppStartDate(null, '2026-11-15')
     expect(startDate).toBe('2026-11-15')
+  })
+})
+
+// ─── calculateOverallDailyStreak ──────────────────────────────────────────────
+describe('calculateOverallDailyStreak', () => {
+  test('counts 3-day streak across different habits on Sun, Mon, Tue', () => {
+    const summary = calculateOverallDailyStreak({
+      entries: [
+        { date: '2026-11-15', isCompleted: true, currentCount: 1 },
+        { date: '2026-11-16', isCompleted: true, currentCount: 1 },
+        { date: '2026-11-17', isCompleted: true, currentCount: 1 },
+      ],
+      tasks: [],
+      referenceDate: '2026-11-17',
+    })
+    expect(summary.currentStreak).toBe(3)
+    expect(summary.bestStreak).toBe(3)
+    expect(summary.activeDates.has('2026-11-15')).toBe(true)
+    expect(summary.activeDates.has('2026-11-16')).toBe(true)
+    expect(summary.activeDates.has('2026-11-17')).toBe(true)
+  })
+
+  test('counts tasks and daily visits toward overall streak', () => {
+    const monTimestamp = new Date(2026, 10, 16, 14, 0, 0).getTime()
+    const summary = calculateOverallDailyStreak({
+      entries: [{ date: '2026-11-15', isCompleted: true }],
+      tasks: [{ isCompleted: true, completedAt: monTimestamp, dueDate: '2026-11-16' }],
+      visitedDates: ['2026-11-17'],
+      referenceDate: '2026-11-17',
+    })
+    expect(summary.currentStreak).toBe(3)
+    expect(summary.bestStreak).toBe(3)
+  })
+
+  test('resets streak when a day is missed without freeze and excludes missed day from activeDates', () => {
+    const summary = calculateOverallDailyStreak({
+      entries: [
+        { date: '2026-11-15', isCompleted: true },
+        { date: '2026-11-17', isCompleted: true },
+      ],
+      tasks: [],
+      historicalBestStreak: 2,
+      referenceDate: '2026-11-17',
+    })
+    expect(summary.currentStreak).toBe(1)
+    expect(summary.bestStreak).toBe(2)
+    expect(summary.activeDates.has('2026-11-16')).toBe(false)
+  })
+
+  test('recordDailyVisit and getVisitedDates persist unique sorted dates', () => {
+    localStorage.removeItem('habitat_visited_dates')
+    localStorage.removeItem('habitat_last_visited_date')
+    localStorage.removeItem('habitat_streak_levelup_date')
+
+    recordDailyVisit('2026-11-16')
+    recordDailyVisit('2026-11-15')
+    recordDailyVisit('2026-11-17')
+    recordDailyVisit('2026-11-17')
+
+    expect(getVisitedDates()).toEqual(['2026-11-15', '2026-11-16', '2026-11-17'])
   })
 })

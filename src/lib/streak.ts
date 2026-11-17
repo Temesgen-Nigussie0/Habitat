@@ -223,3 +223,133 @@ export function calculateStreak(
     isCompletedToday,
   }
 }
+
+const VISITED_DATES_KEY = 'habitat_visited_dates'
+
+/**
+ * Returns all locally recorded app check-in dates ('yyyy-MM-dd') from localStorage.
+ */
+export function getVisitedDates(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(VISITED_DATES_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    const dates = new Set<string>()
+    if (Array.isArray(parsed)) {
+      for (const item of parsed) {
+        if (typeof item === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item)) {
+          dates.add(item)
+        }
+      }
+    }
+    const legacyKeys = ['habitat_last_visited_date', 'habitat_streak_levelup_date']
+    for (const key of legacyKeys) {
+      const val = localStorage.getItem(key)
+      if (val && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        dates.add(val)
+      }
+    }
+    return [...dates].sort()
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Records a date (defaults to today local) as an app check-in day in localStorage.
+ * Returns the updated sorted list of visited dates.
+ */
+export function recordDailyVisit(dateStr: string = getTodayLocal()): string[] {
+  if (typeof window === 'undefined') return [dateStr]
+  const existing = new Set(getVisitedDates())
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    existing.add(dateStr)
+  }
+  const sorted = [...existing].sort()
+  try {
+    localStorage.setItem(VISITED_DATES_KEY, JSON.stringify(sorted))
+  } catch {
+    // ignore quota errors
+  }
+  return sorted
+}
+
+export interface DailyStreakSummary {
+  currentStreak: number
+  bestStreak: number
+  activeDates: Set<string>
+  lastActiveDate: string | null
+  isActiveToday: boolean
+}
+
+/**
+ * Calculates the user's overall daily app streak across all activity:
+ *   - Completed habit entries (or logged counter progress) across ANY habit
+ *   - Completed tasks (using completion date)
+ *   - Recorded daily app check-in visits
+ *   - Streak freeze dates
+ */
+export function calculateOverallDailyStreak(params: {
+  entries: Array<{ date: string; isCompleted: boolean; currentCount?: number }>
+  tasks: Array<{ isCompleted: boolean; completedAt: number | null; dueDate: string | null }>
+  visitedDates?: string[]
+  freezeDates?: string[]
+  historicalBestStreak?: number
+  referenceDate?: string
+}): DailyStreakSummary {
+  const today = params.referenceDate ?? getTodayLocal()
+  const activeDates = new Set<string>()
+
+  // 1. Habit completions & logged counter progress across all habits
+  for (const e of params.entries) {
+    if (
+      (e.isCompleted || (e.currentCount ?? 0) > 0) &&
+      e.date &&
+      /^\d{4}-\d{2}-\d{2}$/.test(e.date) &&
+      e.date <= today
+    ) {
+      activeDates.add(e.date)
+    }
+  }
+
+  // 2. Completed tasks
+  for (const t of params.tasks) {
+    if (!t.isCompleted) continue
+    const d = t.completedAt
+      ? formatLocalDate(new Date(t.completedAt))
+      : t.dueDate
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today) {
+      activeDates.add(d)
+    }
+  }
+
+  // 3. Recorded daily check-in visits
+  if (params.visitedDates) {
+    for (const d of params.visitedDates) {
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today) {
+        activeDates.add(d)
+      }
+    }
+  }
+
+  const completedDatesList = [...activeDates].sort()
+  const result = calculateStreak(
+    completedDatesList,
+    'DAILY',
+    '',
+    params.freezeDates ?? [],
+    today
+  )
+
+  return {
+    currentStreak: result.currentStreak,
+    bestStreak: Math.max(
+      result.bestStreak,
+      result.currentStreak,
+      params.historicalBestStreak ?? 0
+    ),
+    activeDates,
+    lastActiveDate: result.lastCompletedDate,
+    isActiveToday: result.isCompletedToday,
+  }
+}

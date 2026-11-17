@@ -157,6 +157,18 @@ async function _recalculateStreak(habitId: number): Promise<void> {
   })
 }
 
+/** Recalculate streaks for all active habits so stored streaks never go stale across day boundaries. */
+export async function recalculateAllHabitStreaks(): Promise<void> {
+  const habits = await db.habits.toArray()
+  await db.transaction('rw', db.habits, db.habitEntries, db.streakFreezes, async () => {
+    for (const h of habits) {
+      if (h.id !== undefined && !h.isArchived) {
+        await _recalculateStreak(h.id)
+      }
+    }
+  })
+}
+
 // ─── User Profile ─────────────────────────────────────────────────────────────
 
 const DEFAULT_PROFILE: UserProfile = {

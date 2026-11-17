@@ -26,14 +26,21 @@ import {
   useAllEntries,
   useTasks,
   useUserProfile,
+  useStreakFreezes,
 } from '../db/hooks'
-import { toggleHabitCompletion, incrementHabitCounter } from '../db/actions'
 import {
+  toggleHabitCompletion,
+  incrementHabitCounter,
+  recalculateAllHabitStreaks,
+} from '../db/actions'
+import {
+  calculateOverallDailyStreak,
   formatLocalDate,
   getAppStartDate,
   getTodayLocal,
   isHabitScheduledOn,
   parseLocalDate,
+  recordDailyVisit,
 } from '../lib/streak'
 import { getDailyCompletionPercent, isFuture } from '../lib/stats'
 import type { Habit } from '../db/types'
@@ -58,6 +65,9 @@ export default function TodayScreen() {
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null)
   const [streakModalOpen, setStreakModalOpen] = useState(false)
   const [isLevelUpModal, setIsLevelUpModal] = useState(false)
+  const [visitedDates, setVisitedDates] = useState<string[]>(() =>
+    recordDailyVisit(todayStr)
+  )
 
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -69,6 +79,7 @@ export default function TodayScreen() {
   const tasks = useTasks() ?? []
   const entriesForDate = useHabitEntries(selectedDate)
   const allEntries = useAllEntries() ?? []
+  const streakFreezes = useStreakFreezes() ?? []
 
   const tasksDone = useMemo(() => tasks.filter((t) => t.isCompleted).length, [tasks])
   const tasksTotal = tasks.length
@@ -78,12 +89,14 @@ export default function TodayScreen() {
   const isPast = selectedDate < todayStr
   const isLocked = isFutureDate || isPast
 
-  // Check next-day app opening to celebrate streak increase
+  // Record daily visit, refresh per-habit streaks, and celebrate next-day streak increase
   useEffect(() => {
     const lastDate = localStorage.getItem('habitat_last_visited_date')
     const lastLevelUpDate = localStorage.getItem('habitat_streak_levelup_date')
 
+    setVisitedDates(recordDailyVisit(todayStr))
     localStorage.setItem('habitat_last_visited_date', todayStr)
+    void recalculateAllHabitStreaks()
 
     if (lastDate && lastDate !== todayStr && lastLevelUpDate !== todayStr) {
       localStorage.setItem('habitat_streak_levelup_date', todayStr)
@@ -156,16 +169,31 @@ export default function TodayScreen() {
     return getDailyCompletionPercent(habits, entriesForDate, selectedDate)
   }, [habits, entriesForDate, selectedDate])
 
-  // Best current streak among all active habits
-  const maxStreak = useMemo(() => {
-    if (!habits || habits.length === 0) return 0
-    return Math.max(0, ...habits.map((h) => h.currentStreak))
-  }, [habits])
+  const freezeDates = useMemo(
+    () => streakFreezes.map((f) => f.date),
+    [streakFreezes]
+  )
+  const freezeDateSet = useMemo(() => new Set(freezeDates), [freezeDates])
 
-  const bestStreak = useMemo(() => {
+  const historicalHabitBest = useMemo(() => {
     if (!habits || habits.length === 0) return 0
     return Math.max(0, ...habits.map((h) => h.bestStreak || h.currentStreak))
   }, [habits])
+
+  // Overall daily app streak across all habits, tasks, daily check-ins, and streak freezes
+  const dailyStreak = useMemo(() => {
+    return calculateOverallDailyStreak({
+      entries: allEntries,
+      tasks,
+      visitedDates,
+      freezeDates,
+      historicalBestStreak: historicalHabitBest,
+      referenceDate: todayStr,
+    })
+  }, [allEntries, tasks, visitedDates, freezeDates, historicalHabitBest, todayStr])
+
+  const maxStreak = dailyStreak.currentStreak
+  const bestStreak = dailyStreak.bestStreak
 
   // Filter by timeOfDay (Anytime appears in All)
   const filteredHabits = useMemo(() => {
@@ -385,7 +413,9 @@ export default function TodayScreen() {
           >
             <Flame size={14} color="#FF9F0A" fill="#FF9F0A" />
             <span className="text-amber text-xs font-extrabold">
-              {maxStreak > 0 ? `${maxStreak} Days` : 'Daily Streak'}
+              {maxStreak > 0
+                ? `${maxStreak} ${maxStreak === 1 ? 'Day' : 'Days'}`
+                : 'Daily Streak'}
             </span>
           </button>
         </div>
@@ -670,6 +700,8 @@ export default function TodayScreen() {
         habitsScheduled={totalScheduled}
         completionPercent={completionPercent}
         isLevelUpMode={isLevelUpModal}
+        activeDates={dailyStreak.activeDates}
+        freezeDates={freezeDateSet}
       />
     </Screen>
   )
