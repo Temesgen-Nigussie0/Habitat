@@ -273,8 +273,8 @@ export async function scheduleHabitReminder(
 
   if (delay > 0 && delay <= 86400000) {
     window.setTimeout(() => {
-      void sendNativeNotification(`🔥 Habit Prompt: ${habitName}`, {
-        body: `It's ${timeStr} — time to build your streak!`,
+      void sendNativeNotification(`🔥 Its Time to: ${habitName}`, {
+        body: `Don't say for later. DO it NOW!!`,
         tag: `habit-reminder-${habitName}`,
       })
     }, delay)
