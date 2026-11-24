@@ -32,3 +32,10 @@ Add these 3 variables to your local `.env` and **Vercel Project Settings → Env
 - `VITE_VAPID_PUBLIC_KEY`
 
 Redeploy on Vercel, open Habitat from your iPhone Home Screen, and tap **Sync & Enable** (or create a task/habit reminder) to subscribe your device!
+
+---
+
+## 6. Enable Google Sign-In & Cloud Sync (Optional)
+1. Run `supabase/migrations/20261125_cloud_sync.sql` in Supabase **SQL Editor**.
+2. In Supabase Dashboard → **Authentication → Providers → Google**, toggle **Enabled** and paste your **Google OAuth Client ID** and **Client Secret** (from [Google Cloud Console](https://console.cloud.google.com/apis/credentials), with Authorized redirect URI `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`).
+3. In Supabase Dashboard → **Authentication → URL Configuration**, add your Vercel domain (`https://your-app.vercel.app/profile`) and `http://localhost:5173/profile` to **Redirect URLs**.

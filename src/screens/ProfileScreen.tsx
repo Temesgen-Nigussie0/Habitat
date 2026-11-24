@@ -29,6 +29,7 @@ import QuickHabitsLibrary, {
   type CuratedQuickHabit,
 } from '../components/QuickHabitsLibrary'
 import DataBackupSection from '../components/DataBackupSection'
+import CloudSyncCard from '../components/CloudSyncCard'
 import EditBioSheet from '../components/EditBioSheet'
 import ImageAdjustmentDialog from '../components/ImageAdjustmentDialog'
 import {
@@ -479,6 +480,11 @@ export default function ProfileScreen() {
             <RotateCcw className="h-4 w-4 text-[#FF6A00]" />
             Retake 10-Question Onboarding
           </button>
+        </div>
+
+        {/* 7b. Cloud Sync (Google Sign-In) */}
+        <div className="mt-6">
+          <CloudSyncCard onNotify={(msg) => setToastMsg(msg)} />
         </div>
 
         {/* 8. Your Data (Backup Export / Import / Erase) */}
