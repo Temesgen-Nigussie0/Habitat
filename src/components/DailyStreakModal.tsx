@@ -130,9 +130,10 @@ export default function DailyStreakModal({
 
               <motion.h1
                 key={displayedStreak}
+                layoutId={!isLevelUpMode ? 'streak-morph-badge' : undefined}
                 initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="mt-2 text-[44px] font-black tracking-tight leading-none text-white"
+                className="mt-2 text-[44px] font-black tracking-tight leading-none text-white tabular-nums"
               >
                 {displayedStreak}
               </motion.h1>

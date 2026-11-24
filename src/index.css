@@ -68,6 +68,10 @@ textarea {
   height: 100%;
 }
 
+:root {
+  --accent-rgb: 255, 106, 0;
+}
+
 /* Hide scrollbar but keep functionality */
 .scrollbar-hidden::-webkit-scrollbar,
 .no-scrollbar::-webkit-scrollbar {
@@ -79,5 +83,36 @@ textarea {
 .no-scrollbar {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
+}
+
+/* Directional dark-glass skeleton shimmer */
+@keyframes habitat-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #16161c;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.05) 55%,
+    transparent 100%
+  );
+  animation: habitat-shimmer 1.5s infinite ease-in-out;
 }
 

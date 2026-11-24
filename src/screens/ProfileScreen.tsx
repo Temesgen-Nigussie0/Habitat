@@ -4,16 +4,25 @@ import {
   AlarmClock,
   Brain,
   Camera,
+  Check,
   Code,
   Film,
   Flame,
   Gauge,
   GraduationCap,
+  Lock,
+  Palette,
   Pencil,
   RotateCcw,
   Sparkles,
   Zap,
 } from 'lucide-react'
+import {
+  ACCENT_THEMES,
+  getSelectedAccentTheme,
+  isAccentThemeUnlocked,
+  selectAndApplyAccentTheme,
+} from '../lib/accentTheme'
 import Screen from '../components/Screen'
 import StreakFreezeProtocolCard from '../components/StreakFreezeProtocolCard'
 import QuickHabitsLibrary, {
@@ -85,6 +94,7 @@ export default function ProfileScreen() {
   const [editBioOpen, setEditBioOpen] = useState(false)
   const [retakeConfirmOpen, setRetakeConfirmOpen] = useState(false)
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
+  const [selectedThemeId, setSelectedThemeId] = useState(() => getSelectedAccentTheme().id)
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
   const [cropState, setCropState] = useState<{
     src: string
@@ -380,6 +390,75 @@ export default function ProfileScreen() {
               void setComebackProtocolActive(active)
             }}
           />
+        </div>
+
+        {/* 5b. Unlockable Accent Themes */}
+        <div className="mt-6">
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-[1px] text-orange">
+              ACCENT THEME
+            </p>
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#8E8E93]">
+              <Palette className="h-3.5 w-3.5 text-orange" />
+              Personalize
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 rounded-[20px] border border-[#242428] bg-[#161618] p-3">
+            {ACCENT_THEMES.map((theme) => {
+              const bestStreakVal = Math.max(
+                0,
+                ...(allHabits ?? []).map((h) => h.bestStreak || h.currentStreak)
+              )
+              const totalDoneCount = (allEntries ?? []).filter((e) => e.isCompleted).length
+              const unlocked = isAccentThemeUnlocked(theme, bestStreakVal, totalDoneCount)
+              const isSelected = selectedThemeId === theme.id
+
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => {
+                    if (!unlocked) {
+                      setToastMsg(`Unlock ${theme.name}: ${theme.unlockLabel}`)
+                      return
+                    }
+                    selectAndApplyAccentTheme(theme.id)
+                    setSelectedThemeId(theme.id)
+                    setToastMsg(`Theme switched to ${theme.name}`)
+                  }}
+                  className="flex min-h-[48px] items-center justify-between rounded-[14px] border px-3.5 py-2 text-left transition-all active:scale-[0.99]"
+                  style={{
+                    backgroundColor: isSelected ? `${theme.primary}1A` : '#0D0D0E',
+                    borderColor: isSelected ? theme.primary : '#242428',
+                    opacity: unlocked ? 1 : 0.65,
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="h-6 w-6 rounded-full border border-white/20 flex-shrink-0"
+                      style={{ backgroundColor: theme.primary }}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-[#F5F5F7] truncate">
+                        {theme.name}
+                      </p>
+                      <p className="text-[10px] text-[#8E8E93]">{theme.unlockLabel}</p>
+                    </div>
+                  </div>
+                  {isSelected ? (
+                    <span
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-white"
+                      style={{ backgroundColor: theme.primary }}
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  ) : !unlocked ? (
+                    <Lock className="h-4 w-4 text-[#636366]" />
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* 6. Quick Habit Library */}

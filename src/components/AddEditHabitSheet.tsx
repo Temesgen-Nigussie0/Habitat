@@ -226,6 +226,7 @@ export default function AddEditHabitSheet({
           />
 
           <motion.div
+            layoutId={!habitToEdit ? 'fab-morph-surface' : undefined}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

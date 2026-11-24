@@ -8,13 +8,17 @@ import {
   Circle,
   CheckCircle2,
   Flame,
+  CalendarDays,
+  CalendarPlus,
+  Check,
 } from 'lucide-react'
 import { format, getDaysInMonth } from 'date-fns'
-import { useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import Screen from '../components/Screen'
 import FAB from '../components/FAB'
 import ProgressRing from '../components/ProgressRing'
 import ActionToast, { type ActionToastData } from '../components/ActionToast'
+import EmptyStateIllustration from '../components/EmptyStateIllustration'
 import { AddEditTaskSheet } from '../components/AddEditTaskSheet'
 import CreateWorkspaceModal from '../components/CreateWorkspaceModal'
 import TaskSpecificationsSheet from '../components/TaskSpecificationsSheet'
@@ -44,8 +48,10 @@ import {
   formatLocalDate,
   getAppStartDate,
   getTodayLocal,
+  offsetDate,
   parseLocalDate,
 } from '../lib/streak'
+import { triggerHaptic } from '../lib/haptics'
 
 const MONTH_NAMES = [
   'January',
@@ -103,8 +109,10 @@ export default function TasksScreen() {
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [monthMenuOpen, setMonthMenuOpen] = useState(false)
+  const [calendarExpanded, setCalendarExpanded] = useState(false)
   const [lowExpanded, setLowExpanded] = useState(false)
   const [mediumExpanded, setMediumExpanded] = useState(false)
+  const [swipingTask, setSwipingTask] = useState<{ id: number; x: number } | null>(null)
 
   const [addEditOpen, setAddEditOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -316,8 +324,56 @@ export default function TasksScreen() {
 
   const handleToggleTask = async (task: Task) => {
     if (task.id === undefined) return
+    triggerHaptic(task.isCompleted ? 'light' : 'success')
     await toggleTaskCompleted(task.id, task.isCompleted)
   }
+
+  const handleMoveTaskToTomorrow = async (task: Task) => {
+    if (task.id === undefined) return
+    const nextDate = offsetDate(task.dueDate || selectedDateStr || todayStr, 1)
+    triggerHaptic('light')
+    await updateTask({
+      ...task,
+      dueDate: nextDate,
+      endDate: task.endDate ? offsetDate(task.endDate, 1) : null,
+    })
+    setActionToast({
+      title: `Moved to tomorrow`,
+      subtitle: `${task.title} → ${nextDate}`,
+      variant: 'task',
+    })
+  }
+
+  const taskDotMap = useMemo(() => {
+    const map = new Map<string, 'urgent' | 'pending' | 'done'>()
+    for (const t of workspaceScopedTasks) {
+      if (!t.dueDate) continue
+      const current = map.get(t.dueDate)
+      if (!t.isCompleted) {
+        if (t.priority === 'Urgent' || t.priority === 'High') {
+          map.set(t.dueDate, 'urgent')
+        } else if (current !== 'urgent') {
+          map.set(t.dueDate, 'pending')
+        }
+      } else if (!current) {
+        map.set(t.dueDate, 'done')
+      }
+    }
+    return map
+  }, [workspaceScopedTasks])
+
+  const fullCalendarCells = useMemo(() => {
+    const firstDay = new Date(selectedYear, selectedMonth, 1)
+    const leadingBlanks = firstDay.getDay() // 0=Sun..6=Sat
+    const totalDays = getDaysInMonth(firstDay)
+    const cells: Array<{ dateStr: string; dayNum: number } | null> = []
+    for (let i = 0; i < leadingBlanks; i++) cells.push(null)
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = formatLocalDate(new Date(selectedYear, selectedMonth, d))
+      cells.push({ dateStr, dayNum: d })
+    }
+    return cells
+  }, [selectedYear, selectedMonth])
 
   const handleMoveKanban = async (taskId: number, status: KanbanStatus) => {
     await updateTaskKanbanStatus(taskId, status)
@@ -335,13 +391,35 @@ export default function TasksScreen() {
     }, 500)
   }
 
-  const moveLongPress = (clientX: number, clientY: number) => {
-    if (!pointerStartRef.current || !longPressTimerRef.current) return
-    const dx = Math.abs(clientX - pointerStartRef.current.x)
-    const dy = Math.abs(clientY - pointerStartRef.current.y)
-    if (dx > 8 || dy > 8) {
+  const moveLongPress = (taskId: number | undefined, clientX: number, clientY: number) => {
+    if (!pointerStartRef.current) return
+    const dx = clientX - pointerStartRef.current.x
+    const dy = clientY - pointerStartRef.current.y
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      if (longPressTimerRef.current) {
+        window.clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+    }
+    if (taskId !== undefined && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+      longPressTriggeredRef.current = true
+      setSwipingTask({ id: taskId, x: Math.max(-110, Math.min(110, dx)) })
+    }
+  }
+
+  const finishTaskPointer = (task: Task) => {
+    if (longPressTimerRef.current) {
       window.clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
+    }
+    if (swipingTask && swipingTask.id === task.id) {
+      const finalX = swipingTask.x
+      setSwipingTask(null)
+      if (finalX >= 60) {
+        void handleToggleTask(task)
+      } else if (finalX <= -60) {
+        void handleMoveTaskToTomorrow(task)
+      }
     }
   }
 
@@ -519,8 +597,14 @@ export default function TasksScreen() {
 
       {/* Loading State */}
       {tasks === undefined ? (
-        <div className="mt-8 flex items-center justify-center py-12 text-[14px] text-[#8E8E93]">
-          Loading tasks...
+        <div className="mt-6 space-y-3">
+          <div className="h-14 rounded-[18px] border border-[#242428] skeleton-shimmer" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="h-36 rounded-[24px] border border-[#242428] skeleton-shimmer" />
+            <div className="h-36 rounded-[24px] border border-[#242428] skeleton-shimmer" />
+          </div>
+          <div className="h-20 rounded-[22px] border border-[#242428] skeleton-shimmer" />
+          <div className="h-20 rounded-[22px] border border-[#242428] skeleton-shimmer" />
         </div>
       ) : viewMode === 'EISENHOWER' ? (
         <div className="mt-5">
@@ -562,19 +646,33 @@ export default function TasksScreen() {
         </div>
       ) : (
         <>
-          {/* Your Timeline + Month Dropdown */}
+          {/* Your Timeline + Calendar Toggle + Month Dropdown */}
           <div className="relative mt-5 flex items-center justify-between">
             <h2 className="text-[18px] font-bold text-[#F5F5F7]">
               Your Timeline
             </h2>
-            <button
-              type="button"
-              onClick={() => setMonthMenuOpen((v) => !v)}
-              className="inline-flex min-h-[36px] items-center gap-1 text-[14px] font-semibold text-[#FF6A00]"
-            >
-              {MONTH_NAMES[selectedMonth]}
-              <ChevronDown className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCalendarExpanded((v) => !v)}
+                aria-label="Toggle month calendar view"
+                className={`flex h-9 w-9 items-center justify-center rounded-[11px] border transition-colors ${
+                  calendarExpanded
+                    ? 'border-[#FF6A00] bg-[#FF6A00]/15 text-[#FF6A00]'
+                    : 'border-[#242428] bg-[#161618] text-[#A1A1AA]'
+                }`}
+              >
+                <CalendarDays className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMonthMenuOpen((v) => !v)}
+                className="inline-flex min-h-[36px] items-center gap-1 text-[14px] font-semibold text-[#FF6A00]"
+              >
+                {MONTH_NAMES[selectedMonth]}
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
 
             {monthMenuOpen && (
               <>
@@ -601,6 +699,74 @@ export default function TasksScreen() {
               </>
             )}
           </div>
+
+          {/* Expandable Month Calendar Grid OR Horizontal Day Strip */}
+          <AnimatePresence initial={false}>
+            {calendarExpanded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 rounded-[20px] border border-[#242428] bg-[#161618] p-3">
+                  <div className="mb-2 grid grid-cols-7 text-center text-[10px] font-bold uppercase tracking-wider text-[#6E6E7A]">
+                    <span>Sun</span>
+                    <span>Mon</span>
+                    <span>Tue</span>
+                    <span>Wed</span>
+                    <span>Thu</span>
+                    <span>Fri</span>
+                    <span>Sat</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {fullCalendarCells.map((cell, idx) => {
+                      if (!cell) {
+                        return <div key={`blank-${idx}`} className="h-10" />
+                      }
+                      const isSel = cell.dateStr === selectedDateStr
+                      const isTod = cell.dateStr === todayStr
+                      const dot = taskDotMap.get(cell.dateStr)
+                      return (
+                        <button
+                          key={cell.dateStr}
+                          type="button"
+                          onClick={() => setSelectedDateStr(cell.dateStr)}
+                          className={`relative flex h-10 flex-col items-center justify-center rounded-[12px] text-[13px] font-bold tabular-nums transition-colors ${
+                            isSel
+                              ? isTod
+                                ? 'bg-[#FF6A00] text-white'
+                                : 'border-2 border-[#FF6A00] bg-[#FF6A00]/15 text-[#FF6A00]'
+                              : isTod
+                                ? 'border border-[#FF6A00]/60 text-[#F5F5F7]'
+                                : 'text-[#A1A1AA] hover:bg-[#242428]'
+                          }`}
+                        >
+                          <span>{cell.dayNum}</span>
+                          {dot && (
+                            <span
+                              className="mt-0.5 h-1 w-1 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  isSel && isTod
+                                    ? '#FFFFFF'
+                                    : dot === 'urgent'
+                                      ? '#FF453A'
+                                      : dot === 'pending'
+                                        ? '#FF6A00'
+                                        : '#30D158',
+                              }}
+                            />
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Horizontal Day Strip */}
           <div
@@ -828,11 +994,33 @@ export default function TasksScreen() {
             </div>
 
             {filteredTasks.length === 0 ? (
-              <div className="rounded-[22px] border border-[#242428] bg-[#161618] p-8 text-center">
-                <p className="text-[14px] font-medium text-[#8E8E93]">
-                  No tasks found
-                </p>
-              </div>
+              <EmptyStateIllustration
+                variant={searchQuery || priorityFilter !== 'ALL' ? 'search' : 'tasks'}
+                title={
+                  searchQuery || priorityFilter !== 'ALL'
+                    ? 'No matching tasks'
+                    : 'Clear slate for today'
+                }
+                subtitle={
+                  searchQuery || priorityFilter !== 'ALL'
+                    ? 'Try clearing your search or priority filter.'
+                    : 'Capture what matters most and stay ahead of every deadline.'
+                }
+                ctaLabel={
+                  searchQuery || priorityFilter !== 'ALL'
+                    ? 'Clear Filters'
+                    : 'Add First Task'
+                }
+                onAction={() => {
+                  if (searchQuery || priorityFilter !== 'ALL') {
+                    setSearchQuery('')
+                    setPriorityFilter('ALL')
+                  } else {
+                    setEditingTask(null)
+                    setAddEditOpen(true)
+                  }
+                }}
+              />
             ) : (
               <div className="flex flex-col gap-2.5">
                 {filteredTasks.map((task) => {
@@ -843,86 +1031,124 @@ export default function TasksScreen() {
                   const showAlert =
                     !task.isCompleted &&
                     (task.priority === 'Urgent' || task.priority === 'High')
+                  const currentSwipeX =
+                    swipingTask !== null && swipingTask.id === task.id ? swipingTask.x : 0
 
                   return (
-                    <div
-                      key={task.id}
-                      style={{ WebkitTouchCallout: 'none' }}
-                      onPointerDown={(e) =>
-                        startLongPress(task, e.clientX, e.clientY)
-                      }
-                      onPointerMove={(e) =>
-                        moveLongPress(e.clientX, e.clientY)
-                      }
-                      onPointerUp={cancelLongPress}
-                      onPointerCancel={cancelLongPress}
-                      onClick={() => {
-                        if (longPressTriggeredRef.current) return
-                        setSpecTask(task)
-                      }}
-                      className="flex cursor-pointer select-none items-center justify-between gap-3 rounded-[22px] border border-[#242428] bg-[#161618] p-4 active:scale-[0.99]"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${chipClass}`}
-                          >
-                            {task.priority}
-                          </span>
-                          {showAlert && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setToastMsg(`${task.title} is burning down!`)
-                              }}
-                              className="inline-flex items-center gap-1 rounded-full bg-[#FF453A]/15 px-2 py-0.5 text-[10px] font-bold text-[#FF453A]"
+                    <div key={task.id} className="relative overflow-hidden rounded-[22px]">
+                      {currentSwipeX !== 0 && (
+                        <div
+                          aria-hidden
+                          className="absolute inset-0 flex items-center px-5"
+                          style={{
+                            backgroundColor:
+                              currentSwipeX > 0
+                                ? 'rgba(48,209,88,0.85)'
+                                : 'rgba(10,132,255,0.85)',
+                            justifyContent: currentSwipeX > 0 ? 'flex-start' : 'flex-end',
+                          }}
+                        >
+                          {currentSwipeX > 0 ? (
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                              <Check className="h-4 w-4" strokeWidth={2.5} />
+                              <span>{task.isCompleted ? 'Undo' : 'Mark Done'}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                              <span>Tomorrow</span>
+                              <CalendarPlus className="h-4 w-4" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          WebkitTouchCallout: 'none',
+                          touchAction: 'pan-y',
+                          transform: `translateX(${currentSwipeX}px)`,
+                          transition:
+                            currentSwipeX !== 0
+                              ? 'none'
+                              : 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        }}
+                        onPointerDown={(e) => {
+                          if ((e.target as HTMLElement).closest('button')) return
+                          startLongPress(task, e.clientX, e.clientY)
+                        }}
+                        onPointerMove={(e) =>
+                          moveLongPress(task.id, e.clientX, e.clientY)
+                        }
+                        onPointerUp={() => finishTaskPointer(task)}
+                        onPointerCancel={() => finishTaskPointer(task)}
+                        onClick={() => {
+                          if (longPressTriggeredRef.current) return
+                          setSpecTask(task)
+                        }}
+                        className="relative flex cursor-pointer select-none items-center justify-between gap-3 rounded-[22px] border border-[#242428] bg-[#161618] p-4 active:scale-[0.99]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${chipClass}`}
                             >
-                              Alert <Flame className="h-3 w-3" />
-                            </button>
+                              {task.priority}
+                            </span>
+                            {showAlert && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setToastMsg(`${task.title} is burning down!`)
+                                }}
+                                className="inline-flex items-center gap-1 rounded-full bg-[#FF453A]/15 px-2 py-0.5 text-[10px] font-bold text-[#FF453A]"
+                              >
+                                Alert <Flame className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+
+                          <p
+                            className={`mt-1.5 truncate text-[15px] font-semibold ${
+                              task.isCompleted
+                                ? 'text-[#636366] line-through'
+                                : 'text-[#F5F5F7]'
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+
+                          {dateStatus.text && (
+                            <p
+                              className={`mt-0.5 text-[12px] font-medium ${
+                                DATE_TONE_CLASSES[dateStatus.tone]
+                              }`}
+                            >
+                              {dateStatus.text}
+                            </p>
                           )}
                         </div>
 
-                        <p
-                          className={`mt-1.5 truncate text-[15px] font-semibold ${
+                        <button
+                          type="button"
+                          aria-label={
                             task.isCompleted
-                              ? 'text-[#636366] line-through'
-                              : 'text-[#F5F5F7]'
-                          }`}
+                              ? 'Mark task incomplete'
+                              : 'Mark task complete'
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleToggleTask(task)
+                          }}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#8E8E93] active:scale-90"
                         >
-                          {task.title}
-                        </p>
-
-                        {dateStatus.text && (
-                          <p
-                            className={`mt-0.5 text-[12px] font-medium ${
-                              DATE_TONE_CLASSES[dateStatus.tone]
-                            }`}
-                          >
-                            {dateStatus.text}
-                          </p>
-                        )}
+                          {task.isCompleted ? (
+                            <CheckCircle2 className="h-6 w-6 text-[#30D158]" />
+                          ) : (
+                            <Circle className="h-6 w-6 text-[#636366]" />
+                          )}
+                        </button>
                       </div>
-
-                      <button
-                        type="button"
-                        aria-label={
-                          task.isCompleted
-                            ? 'Mark task incomplete'
-                            : 'Mark task complete'
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleToggleTask(task)
-                        }}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#8E8E93] active:scale-90"
-                      >
-                        {task.isCompleted ? (
-                          <CheckCircle2 className="h-6 w-6 text-[#30D158]" />
-                        ) : (
-                          <Circle className="h-6 w-6 text-[#636366]" />
-                        )}
-                      </button>
                     </div>
                   )
                 })}

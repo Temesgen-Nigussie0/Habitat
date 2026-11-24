@@ -24,6 +24,7 @@ import HabitTimerModal from '../components/HabitTimerModal'
 import DailyStreakModal from '../components/DailyStreakModal'
 import ParticleCelebration from '../components/ParticleCelebration'
 import ActionToast, { type ActionToastData } from '../components/ActionToast'
+import EmptyStateIllustration from '../components/EmptyStateIllustration'
 import { useHabitTimers } from '../context/HabitTimerContext'
 import {
   useHabits,
@@ -86,6 +87,7 @@ export default function TodayScreen() {
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [actionToast, setActionToast] = useState<ActionToastData | null>(null)
   const [settlingHabitIds, setSettlingHabitIds] = useState<Set<number>>(new Set())
+  const [skippedHabitIds, setSkippedHabitIds] = useState<Set<number>>(new Set())
   const [showCelebration, setShowCelebration] = useState(false)
   const prevDoneRef = useRef<number | null>(null)
   const selectedDayRef = useRef<HTMLButtonElement | null>(null)
@@ -283,6 +285,42 @@ export default function TodayScreen() {
     setViewMode(mode)
     localStorage.setItem(VIEW_MODE_KEY, mode)
     setViewMenuOpen(false)
+  }
+
+  // Load skipped habits for selectedDate
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`habitat_skipped_habits_${selectedDate}`)
+      const parsed = raw ? (JSON.parse(raw) as number[]) : []
+      setSkippedHabitIds(new Set(Array.isArray(parsed) ? parsed : []))
+    } catch {
+      setSkippedHabitIds(new Set())
+    }
+  }, [selectedDate])
+
+  const handleToggleSkipHabit = (habit: Habit) => {
+    if (!habit.id || isLocked) return
+    const id = habit.id
+    setSkippedHabitIds((prev) => {
+      const next = new Set(prev)
+      const skipping = !next.has(id)
+      if (skipping) next.add(id)
+      else next.delete(id)
+      try {
+        localStorage.setItem(
+          `habitat_skipped_habits_${selectedDate}`,
+          JSON.stringify([...next])
+        )
+      } catch {
+        // ignore
+      }
+      setActionToast({
+        title: skipping ? `Skipped: ${habit.name}` : `Restored: ${habit.name}`,
+        subtitle: skipping ? 'Marked skipped for today' : 'Back in your active list',
+        variant: 'habit',
+      })
+      return next
+    })
   }
 
   const triggerSettleGlide = (habitId: number) => {
@@ -507,8 +545,9 @@ export default function TodayScreen() {
             </div>
           </div>
 
-          <button
+          <motion.button
             type="button"
+            layoutId="streak-morph-badge"
             onClick={() => {
               setIsLevelUpModal(false)
               setStreakModalOpen(true)
@@ -521,12 +560,12 @@ export default function TodayScreen() {
             }}
           >
             <Flame size={14} color="#FF9F0A" fill="#FF9F0A" />
-            <span className="text-amber text-xs font-extrabold">
+            <span className="text-amber text-xs font-extrabold tabular-nums">
               {maxStreak > 0
                 ? `${maxStreak} ${maxStreak === 1 ? 'Day' : 'Days'}`
                 : 'Daily Streak'}
             </span>
-          </button>
+          </motion.button>
         </div>
 
         {/* Week Strip */}
@@ -684,20 +723,25 @@ export default function TodayScreen() {
                 {[1, 2, 3].map((n) => (
                   <div
                     key={n}
-                    className="h-20 rounded-[20px] bg-card border border-border animate-pulse"
+                    className="h-20 rounded-[20px] border border-border skeleton-shimmer"
                   />
                 ))}
               </div>
             ) : filteredHabits.length === 0 ? (
-              <div className="rounded-[20px] bg-elevated border border-border p-8 text-center">
-                <p className="text-4xl mb-3">🌱</p>
-                <p className="text-text-primary font-semibold text-base">
-                  No habits for this filter
-                </p>
-                <p className="text-text-secondary text-xs mt-1">
-                  Tap the + button to create a new habit.
-                </p>
-              </div>
+              <EmptyStateIllustration
+                variant="habits"
+                title={
+                  selectedFilter === 'All'
+                    ? 'No habits scheduled'
+                    : `No ${selectedFilter.toLowerCase()} habits`
+                }
+                subtitle="Build relentless momentum one daily habit at a time."
+                ctaLabel="Add First Habit"
+                onAction={() => {
+                  setEditingHabit(null)
+                  setAddEditOpen(true)
+                }}
+              />
             ) : (
               <div className={`space-y-3 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
                 {activeHabits.map((habit) => (
@@ -712,11 +756,13 @@ export default function TodayScreen() {
                       habit={habit}
                       entry={entryMap.get(habit.id!)}
                       isLocked={isLocked}
+                      isSkipped={skippedHabitIds.has(habit.id!)}
                       timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
                       onToggle={() => handleToggleHabit(habit)}
                       onIncrement={() => handleIncrementHabit(habit)}
                       onToggleTimer={() => handleToggleTimer(habit)}
                       onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
+                      onSkipToday={() => handleToggleSkipHabit(habit)}
                       onOpenDetail={() => setDetailHabit(habit)}
                       onLockedClick={showLockedMessage}
                     />

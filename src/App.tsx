@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { LayoutGroup } from 'framer-motion'
 import { AlertTriangle, Flame } from 'lucide-react'
 import TodayScreen from './screens/TodayScreen'
 import TasksScreen from './screens/TasksScreen'
@@ -13,6 +14,7 @@ import { useUserProfileStatus } from './db/hooks'
 import { db } from './db/db'
 import { initPendingTaskReminders } from './lib/notifications'
 import { HabitTimerProvider } from './context/HabitTimerContext'
+import { applyAccentTheme, getSelectedAccentTheme } from './lib/accentTheme'
 
 function BrandedSplash() {
   return (
@@ -105,6 +107,7 @@ export default function App() {
   const [storageBlocked, setStorageBlocked] = useState(false)
 
   useEffect(() => {
+    applyAccentTheme(getSelectedAccentTheme())
     initPendingTaskReminders()
     let active = true
     if (typeof indexedDB === 'undefined') {
@@ -128,9 +131,11 @@ export default function App() {
         <StorageBlockedNotice />
       ) : (
         <BrowserRouter>
-          <HabitTimerProvider>
-            <AppRoutes />
-          </HabitTimerProvider>
+          <LayoutGroup>
+            <HabitTimerProvider>
+              <AppRoutes />
+            </HabitTimerProvider>
+          </LayoutGroup>
         </BrowserRouter>
       )}
       <SwUpdateBanner />

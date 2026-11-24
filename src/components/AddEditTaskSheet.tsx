@@ -180,6 +180,7 @@ export function AddEditTaskSheet({
           />
 
           <motion.div
+            layoutId={!taskToEdit ? 'fab-morph-surface' : undefined}
             initial={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReducedMotion ? { opacity: 1 } : { y: 0 }}
             exit={prefersReducedMotion ? { opacity: 0 } : { y: '100%' }}

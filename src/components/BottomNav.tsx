@@ -1,7 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { Home, ClipboardList, Flame, BarChart2, User } from 'lucide-react'
 
-type TabDef = { icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>, label: string; path: string }
+type TabDef = {
+  icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>
+  label: string
+  path: string
+}
 
 const tabs: (TabDef | null)[] = [
   { icon: Home, label: 'Today', path: '/' },
@@ -28,14 +33,14 @@ export default function BottomNav() {
       style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) - 18px), 6px)' }}
     >
       <nav
-        className="pointer-events-auto flex items-center px-2 py-1.5 rounded-[34px] border border-border bg-elevated"
+        className="pointer-events-auto flex items-center px-2 py-1.5 rounded-[34px] border border-border bg-elevated/95 backdrop-blur-md"
         style={{
           width: '92vw',
           maxWidth: 420,
           marginBottom: 4,
         }}
       >
-        {tabs.map((tab, i) => {
+        {tabs.map((tab) => {
           if (tab === null) {
             return (
               <div key="boss" className="flex flex-1 justify-center">
@@ -61,15 +66,21 @@ export default function BottomNav() {
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 active:scale-90 active:opacity-70 transition-all duration-150"
+              className="relative flex flex-1 flex-col items-center justify-center gap-0.5 active:scale-90 transition-transform duration-150"
               style={{ minHeight: 44 }}
             >
               <Icon
                 size={active ? 24 : 22}
-                color={active ? '#FF6A00' : '#6E6E7A'}
+                color={active ? 'var(--color-orange, #FF6A00)' : '#6E6E7A'}
                 strokeWidth={active ? 2.4 : 1.8}
               />
-              {!active && (
+              {active ? (
+                <motion.span
+                  layoutId="bottom-nav-active-dot"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  className="mt-0.5 h-1 w-4 rounded-full bg-orange"
+                />
+              ) : (
                 <span
                   className="text-[10px] font-medium"
                   style={{ color: '#6E6E7A' }}
@@ -84,4 +95,3 @@ export default function BottomNav() {
     </div>
   )
 }
-

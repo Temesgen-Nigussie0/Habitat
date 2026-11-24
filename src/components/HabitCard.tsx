@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Check,
@@ -10,23 +10,26 @@ import {
   Pause,
   Play,
   Plus,
-  Info,
+  SkipForward,
 } from 'lucide-react'
 import type { Habit, HabitEntry } from '../db/types'
 import { HabitIcon } from '../lib/habitIcons'
 import { formatHabitFrequency } from '../lib/streak'
 import { formatTimerSubtitle, type HabitTimerSnapshot } from '../lib/habitTimer'
+import { triggerHaptic } from '../lib/haptics'
 import ProgressRing from './ProgressRing'
 
 interface HabitCardProps {
   habit: Habit
   entry?: HabitEntry
   isLocked: boolean
+  isSkipped?: boolean
   timerSnapshot?: HabitTimerSnapshot
   onToggle: () => void
   onIncrement: () => void
   onToggleTimer?: () => void
   onOpenTimer?: () => void
+  onSkipToday?: () => void
   onOpenDetail: () => void
   onLockedClick: () => void
 }
@@ -35,17 +38,22 @@ export default function HabitCard({
   habit,
   entry,
   isLocked,
+  isSkipped = false,
   timerSnapshot,
   onToggle,
   onIncrement,
   onToggleTimer,
   onOpenTimer,
+  onSkipToday,
   onOpenDetail,
   onLockedClick,
 }: HabitCardProps) {
   const [waterExpanded, setWaterExpanded] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
+  const [shakeTrigger, setShakeTrigger] = useState(0)
+  const [sparkKey, setSparkKey] = useState(0)
+  const [splashKey, setSplashKey] = useState(0)
 
   const pointerRef = useRef<{
     active: boolean
@@ -65,6 +73,33 @@ export default function HabitCard({
   const isWaterHabit =
     habit.iconName.toLowerCase() === 'water' ||
     habit.name.toLowerCase().includes('water')
+
+  const prevCompletedRef = useRef(isCompleted)
+  const prevCountRef = useRef(currentCount)
+
+  useEffect(() => {
+    if (!prevCompletedRef.current && isCompleted) {
+      setSparkKey((k) => k + 1)
+      triggerHaptic('success')
+    }
+    prevCompletedRef.current = isCompleted
+  }, [isCompleted])
+
+  useEffect(() => {
+    if (isWaterHabit && currentCount > prevCountRef.current) {
+      setSplashKey((k) => k + 1)
+      if (currentCount < targetCount) {
+        triggerHaptic('light')
+      }
+    }
+    prevCountRef.current = currentCount
+  }, [isWaterHabit, currentCount, targetCount])
+
+  const handleLockedAttempt = () => {
+    setShakeTrigger((s) => s + 1)
+    triggerHaptic('error')
+    onLockedClick()
+  }
 
   const handlePointerDown = (e: React.PointerEvent) => {
     // Ignore if pointer starts on an interactive button inside the card
@@ -118,11 +153,21 @@ export default function HabitCard({
 
     if (p.horizontal) {
       if (finalX >= 60) {
-        if (isLocked) onLockedClick()
-        else if (isTimedHabit && !isCompleted && onToggleTimer) onToggleTimer()
-        else onToggle()
+        if (isLocked) handleLockedAttempt()
+        else if (isTimedHabit && !isCompleted && onToggleTimer) {
+          triggerHaptic('light')
+          onToggleTimer()
+        } else {
+          triggerHaptic('light')
+          onToggle()
+        }
       } else if (finalX <= -60) {
-        onOpenDetail()
+        if (!isLocked && !isCompleted && onSkipToday) {
+          triggerHaptic('light')
+          onSkipToday()
+        } else {
+          onOpenDetail()
+        }
       }
     } else if (!p.moved) {
       if (isTimerActive && onOpenTimer) {
@@ -137,7 +182,11 @@ export default function HabitCard({
   const waterRatio = Math.min(1, currentCount / targetCount)
 
   return (
-    <div className="relative rounded-[20px] overflow-hidden">
+    <motion.div
+      animate={shakeTrigger > 0 ? { x: [0, -7, 7, -5, 5, 0] } : { x: 0 }}
+      transition={{ duration: 0.35 }}
+      className="relative rounded-[20px] overflow-hidden"
+    >
       {/* Swipe revealed background */}
       {swipeX !== 0 && (
         <div
@@ -156,8 +205,8 @@ export default function HabitCard({
             </div>
           ) : (
             <div className="flex items-center gap-2 text-white font-bold text-xs">
-              <span>Details</span>
-              <Info size={18} />
+              <span>{isSkipped ? 'Unskip' : !isLocked && !isCompleted && onSkipToday ? 'Skip Today' : 'Details'}</span>
+              <SkipForward size={18} />
             </div>
           )}
         </div>
@@ -323,6 +372,12 @@ export default function HabitCard({
                 </span>
               )}
 
+              {isSkipped && !isCompleted && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber/15 border border-amber/30 px-2 py-0.5 text-[10px] font-bold text-amber">
+                  Skipped
+                </span>
+              )}
+
               {isWaterHabit && (
                 <button
                   type="button"
@@ -343,13 +398,57 @@ export default function HabitCard({
             </div>
           </div>
 
-          {/* Right Action Circle (44px+ tap target) */}
+          {/* Right Action Circle + Micro-Feedback Burst (44px+ tap target) */}
+          <div className="relative flex-shrink-0">
+            {/* Checkmark Spark Burst */}
+            {sparkKey > 0 && (
+              <div key={`spark-${sparkKey}`} aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                {[0, 60, 120, 180, 240, 300].map((deg) => {
+                  const rad = (deg * Math.PI) / 180
+                  return (
+                    <motion.span
+                      key={deg}
+                      initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+                      animate={{
+                        x: Math.cos(rad) * 28,
+                        y: Math.sin(rad) * 28,
+                        scale: 0,
+                        opacity: 0,
+                      }}
+                      transition={{ duration: 0.48, ease: 'easeOut' }}
+                      className="absolute h-1.5 w-1.5 rounded-full bg-orange"
+                    />
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Water Drop Splash */}
+            {splashKey > 0 && (
+              <div key={`splash-${splashKey}`} aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                {[-18, -7, 7, 18].map((dx, i) => (
+                  <motion.span
+                    key={i}
+                    initial={{ x: dx * 0.4, y: 0, scale: 0.9, opacity: 1 }}
+                    animate={{
+                      x: dx,
+                      y: -24 - (i % 2) * 8,
+                      scale: 0.2,
+                      opacity: 0,
+                    }}
+                    transition={{ duration: 0.45, ease: 'easeOut' }}
+                    className="absolute h-1.5 w-1.5 rounded-full bg-[#38BDF8]"
+                  />
+                ))}
+              </div>
+            )}
+
           {isLocked ? (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                onLockedClick()
+                handleLockedAttempt()
               }}
               aria-label="Date locked"
               className="w-11 h-11 rounded-full bg-elevated border border-border flex items-center justify-center flex-shrink-0"
@@ -440,6 +539,7 @@ export default function HabitCard({
               {isCompleted && <Check size={20} color="#FFFFFF" strokeWidth={2.5} />}
             </button>
           )}
+          </div>
         </div>
 
         {/* Expanded Hydration Wave Drawer */}
@@ -503,7 +603,7 @@ export default function HabitCard({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }
 
