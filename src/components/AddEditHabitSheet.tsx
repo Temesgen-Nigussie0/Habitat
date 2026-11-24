@@ -13,6 +13,11 @@ interface AddEditHabitSheetProps {
   open: boolean
   habitToEdit: Habit | null
   onClose: () => void
+  onSaved?: (info: {
+    name: string
+    isEdit: boolean
+    reminderTime?: string | null
+  }) => void
 }
 
 const CATEGORIES = ['Health', 'Mind', 'Productivity', 'Routine', 'Sleep', 'Growth']
@@ -42,6 +47,7 @@ export default function AddEditHabitSheet({
   open,
   habitToEdit,
   onClose,
+  onSaved,
 }: AddEditHabitSheetProps) {
   const existingHabits = useHabits() ?? []
 
@@ -196,6 +202,11 @@ export default function AddEditHabitSheet({
       if (cleanReminder) {
         void scheduleHabitReminder(trimmed, cleanReminder)
       }
+      onSaved?.({
+        name: trimmed,
+        isEdit: Boolean(habitToEdit && habitToEdit.id !== undefined),
+        reminderTime: cleanReminder,
+      })
       onClose()
     } finally {
       setIsSaving(false)

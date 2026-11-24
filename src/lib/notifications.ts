@@ -221,42 +221,38 @@ export async function scheduleTaskReminder(
     // Ignore quota errors
   }
 
-  // Prompt for permission if not granted
-  if (isNotificationSupported() && Notification.permission !== 'granted') {
+  // Request permission if still default (no noisy confirmation push on save)
+  if (isNotificationSupported() && Notification.permission === 'default') {
     await requestAppNotificationPermission()
   }
 
-  // Send immediate feedback that reminder is active
-  await sendNativeNotification(`⏰ Reminder Set: ${taskTitle}`, {
-    body: `Habitat will alert you at ${timeStr}.`,
-    tag: `task-confirm-${taskTitle}`,
-  })
+  // Sync to Supabase so background Web Push fires once (even when app is closed)
+  let syncedRemotely = false
+  if (targetTimestamp > Date.now() && isBackgroundPushConfigured()) {
+    syncedRemotely = await syncReminderToSupabase({
+      kind: 'task',
+      itemKey: `${taskTitle.trim().toLowerCase()}|${dateStr}|${timeStr}`,
+      title: `✅ ${taskTitle}`,
+      body: `Due now (${timeStr}) — let's knock it out!`,
+      notifyAtIso: targetDate.toISOString(),
+    })
+  }
 
-  if (delay > 0 && delay <= 86400000) {
+  // Only set local in-app timer as fallback when remote push is not active (prevents duplicate alerts)
+  if (!syncedRemotely && delay > 0 && delay <= 86400000) {
     window.setTimeout(() => {
-      void sendNativeNotification(`⏰ Task Reminder: ${taskTitle}`, {
-        body: `Due now (${timeStr}). Tap to complete in Habitat.`,
+      void sendNativeNotification(`✅ ${taskTitle}`, {
+        body: `Due now (${timeStr}) — let's knock it out!`,
         tag: `task-reminder-${taskTitle}`,
       })
     }, delay)
-  }
-
-  // Sync to Supabase so background Web Push fires even when the app is closed
-  if (targetTimestamp > Date.now()) {
-    void syncReminderToSupabase({
-      kind: 'task',
-      itemKey: `${taskTitle.trim().toLowerCase()}|${dateStr}|${timeStr}`,
-      title: `⏰ Task Reminder: ${taskTitle}`,
-      body: `Scheduled for ${timeStr}. Tap to complete in Habitat.`,
-      notifyAtIso: targetDate.toISOString(),
-    })
   }
 }
 
 const HABIT_REMINDERS_KEY = 'habitat_pending_habit_reminders'
 
 /**
- * Schedules a daily habit reminder. Sends an immediate confirmation and sets the timer.
+ * Schedules a daily habit reminder via Supabase Web Push (with local fallback when offline).
  */
 export async function scheduleHabitReminder(
   habitName: string,
@@ -264,15 +260,9 @@ export async function scheduleHabitReminder(
 ): Promise<void> {
   if (typeof window === 'undefined' || !timeStr) return
 
-  if (isNotificationSupported() && Notification.permission !== 'granted') {
+  if (isNotificationSupported() && Notification.permission === 'default') {
     await requestAppNotificationPermission()
   }
-
-  // Send immediate confirmation
-  await sendNativeNotification(`🔔 Habit Reminder Active: ${habitName}`, {
-    body: `Daily prompt scheduled for ${timeStr}.`,
-    tag: `habit-confirm-${habitName}`,
-  })
 
   // Calculate next occurrence
   const [hours, minutes] = timeStr.split(':').map(Number)
@@ -292,31 +282,37 @@ export async function scheduleHabitReminder(
     // ignore
   }
 
-  if (delay > 0 && delay <= 86400000) {
+  // Sync daily habit reminder to Supabase for background Web Push
+  let syncedRemotely = false
+  if (isBackgroundPushConfigured()) {
+    syncedRemotely = await syncReminderToSupabase({
+      kind: 'habit',
+      itemKey: habitName.trim().toLowerCase(),
+      title: `🔥 ${habitName}`,
+      body: `It's ${timeStr} — keep your streak alive!`,
+      notifyAtIso: computeNextHabitNotifyIso(timeStr),
+      localTime: timeStr,
+    })
+  }
+
+  // Only set local fallback timer when remote push is not active
+  if (!syncedRemotely && delay > 0 && delay <= 86400000) {
     window.setTimeout(() => {
-      void sendNativeNotification(`🔥 Its Time to: ${habitName}`, {
-        body: `Don't say for later. DO it NOW!!`,
+      void sendNativeNotification(`🔥 ${habitName}`, {
+        body: `It's ${timeStr} — keep your streak alive!`,
         tag: `habit-reminder-${habitName}`,
       })
     }, delay)
   }
-
-  // Sync daily habit reminder to Supabase for background Web Push
-  void syncReminderToSupabase({
-    kind: 'habit',
-    itemKey: habitName.trim().toLowerCase(),
-    title: `🔥 Time for: ${habitName}`,
-    body: `Daily reminder (${timeStr}). Tap to log in Habitat.`,
-    notifyAtIso: computeNextHabitNotifyIso(timeStr),
-    localTime: timeStr,
-  })
 }
 
 /**
- * Checks and schedules any pending reminders from localStorage upon app initialization.
+ * Checks and schedules any pending local fallback reminders upon app initialization
+ * (skipped when Supabase background push is active to avoid duplicate notifications).
  */
 export function initPendingTaskReminders(): void {
   if (typeof window === 'undefined') return
+  if (isBackgroundPushConfigured()) return
   try {
     const raw = localStorage.getItem(TASK_REMINDERS_KEY)
     if (!raw) return
@@ -328,8 +324,8 @@ export function initPendingTaskReminders(): void {
       const delay = item.targetTimestamp - now
       if (delay > 0 && delay <= 86400000) {
         window.setTimeout(() => {
-          void sendNativeNotification(`⏰ Task Reminder: ${item.title}`, {
-            body: `Scheduled for ${item.timeStr}. Tap to open Habitat.`,
+          void sendNativeNotification(`✅ ${item.title}`, {
+            body: `Due now (${item.timeStr}) — let's knock it out!`,
             tag: `task-reminder-${item.id}`,
           })
         }, delay)

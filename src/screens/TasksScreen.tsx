@@ -14,6 +14,7 @@ import { useReducedMotion } from 'framer-motion'
 import Screen from '../components/Screen'
 import FAB from '../components/FAB'
 import ProgressRing from '../components/ProgressRing'
+import ActionToast, { type ActionToastData } from '../components/ActionToast'
 import { AddEditTaskSheet } from '../components/AddEditTaskSheet'
 import CreateWorkspaceModal from '../components/CreateWorkspaceModal'
 import TaskSpecificationsSheet from '../components/TaskSpecificationsSheet'
@@ -110,6 +111,7 @@ export default function TasksScreen() {
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false)
   const [specTask, setSpecTask] = useState<Task | null>(null)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [actionToast, setActionToast] = useState<ActionToastData | null>(null)
 
   const selectedDayRef = useRef<HTMLButtonElement | null>(null)
   const longPressTimerRef = useRef<number | null>(null)
@@ -133,6 +135,12 @@ export default function TasksScreen() {
     const t = window.setTimeout(() => setToastMsg(null), 2600)
     return () => window.clearTimeout(t)
   }, [toastMsg])
+
+  useEffect(() => {
+    if (!actionToast) return
+    const t = window.setTimeout(() => setActionToast(null), 2800)
+    return () => window.clearTimeout(t)
+  }, [actionToast])
 
   useEffect(() => {
     if (selectedDayRef.current) {
@@ -268,7 +276,8 @@ export default function TasksScreen() {
     taskData: Omit<Task, 'id'>,
     existingTask?: Task
   ) => {
-    if (existingTask?.id !== undefined) {
+    const isEdit = existingTask?.id !== undefined
+    if (isEdit) {
       await updateTask({ ...taskData, id: existingTask.id })
     } else {
       await insertTask(taskData)
@@ -284,6 +293,16 @@ export default function TasksScreen() {
         setSearchQuery('')
       }
     }
+    const timeNote = taskData.dailyTimeline
+      ? `Reminder set for ${taskData.dailyTimeline}`
+      : taskData.dueDate
+        ? `Scheduled for ${taskData.dueDate}`
+        : 'Added to your tasks'
+    setActionToast({
+      title: isEdit ? `Task updated: ${taskData.title}` : `Task created: ${taskData.title}`,
+      subtitle: timeNote,
+      variant: 'task',
+    })
   }
 
   const handleDeleteTask = async (taskId: number) => {
@@ -341,6 +360,9 @@ export default function TasksScreen() {
           {toastMsg}
         </div>
       )}
+
+      {/* Animated Bottom Action Toast */}
+      <ActionToast toast={actionToast} onDismiss={() => setActionToast(null)} />
 
       {/* Top Row: Grid Button + Search Field */}
       <div className="relative flex items-center gap-3 pt-2">

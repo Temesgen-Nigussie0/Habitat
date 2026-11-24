@@ -22,6 +22,7 @@ import HabitDetailSheet from '../components/HabitDetailSheet'
 import HabitTimerModal from '../components/HabitTimerModal'
 import DailyStreakModal from '../components/DailyStreakModal'
 import ParticleCelebration from '../components/ParticleCelebration'
+import ActionToast, { type ActionToastData } from '../components/ActionToast'
 import { useHabitTimers } from '../context/HabitTimerContext'
 import {
   useHabits,
@@ -82,6 +83,7 @@ export default function TodayScreen() {
   } = useHabitTimers()
 
   const [lockedToast, setLockedToast] = useState<string | null>(null)
+  const [actionToast, setActionToast] = useState<ActionToastData | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
   const prevDoneRef = useRef<number | null>(null)
   const selectedDayRef = useRef<HTMLButtonElement | null>(null)
@@ -255,6 +257,13 @@ export default function TodayScreen() {
     const t = setTimeout(() => setLockedToast(null), 2600)
     return () => clearTimeout(t)
   }, [lockedToast])
+
+  // Auto-dismiss bottom created/updated toast
+  useEffect(() => {
+    if (!actionToast) return
+    const t = setTimeout(() => setActionToast(null), 2800)
+    return () => clearTimeout(t)
+  }, [actionToast])
 
   const showLockedMessage = () => {
     if (isPast) {
@@ -742,7 +751,17 @@ export default function TodayScreen() {
           setAddEditOpen(false)
           setEditingHabit(null)
         }}
+        onSaved={({ name, isEdit, reminderTime }) => {
+          setActionToast({
+            title: isEdit ? `Habit updated: ${name}` : `Habit created: ${name}`,
+            subtitle: reminderTime ? `Reminder set for ${reminderTime}` : 'Added to your daily rhythm',
+            variant: 'habit',
+          })
+        }}
       />
+
+      {/* Animated Bottom Action Toast */}
+      <ActionToast toast={actionToast} onDismiss={() => setActionToast(null)} />
 
       {/* Habit Detail Sheet */}
       <HabitDetailSheet
