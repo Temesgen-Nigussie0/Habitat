@@ -66,8 +66,11 @@ describe('Phase 2: Tasks logic', () => {
       filterAndSortTasks(tasks, { priorityFilter: 'MEDIUM' }).map((t) => t.priority)
     ).toEqual(['Medium'])
     expect(
+      filterAndSortTasks(tasks, { priorityFilter: 'HIGH' }).map((t) => t.priority)
+    ).toEqual(['High'])
+    expect(
       filterAndSortTasks(tasks, { priorityFilter: 'URGENT' }).map((t) => t.priority)
-    ).toEqual(['Urgent', 'High'])
+    ).toEqual(['Urgent'])
   })
 
   it('filters by workspace and search query across title, workspace, and notes', () => {

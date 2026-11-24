@@ -232,8 +232,8 @@ export async function scheduleTaskReminder(
     syncedRemotely = await syncReminderToSupabase({
       kind: 'task',
       itemKey: `${taskTitle.trim().toLowerCase()}|${dateStr}|${timeStr}`,
-      title: `✅ ${taskTitle}`,
-      body: `Due now (${timeStr}) — let's knock it out!`,
+      title: `${taskTitle}`,
+      body: `Due now (${timeStr}) — hurry up boi!`,
       notifyAtIso: targetDate.toISOString(),
     })
   }
@@ -241,8 +241,8 @@ export async function scheduleTaskReminder(
   // Only set local in-app timer as fallback when remote push is not active (prevents duplicate alerts)
   if (!syncedRemotely && delay > 0 && delay <= 86400000) {
     window.setTimeout(() => {
-      void sendNativeNotification(`✅ ${taskTitle}`, {
-        body: `Due now (${timeStr}) — let's knock it out!`,
+      void sendNativeNotification(`${taskTitle}`, {
+        body: `Due now (${timeStr}) — let's fuckin do it!`,
         tag: `task-reminder-${taskTitle}`,
       })
     }, delay)

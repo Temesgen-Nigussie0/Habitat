@@ -24,9 +24,9 @@ export default function Screen({ children, className = '', noNav = false }: Scre
       }}
     >
       <motion.div
-        initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        initial={prefersReduced ? false : { opacity: 0, y: 12, scale: 0.99 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
         className="w-full min-h-full"
       >
         {children}

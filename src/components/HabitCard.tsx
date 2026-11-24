@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { motion } from 'framer-motion'
 import {
   Check,
   ChevronDown,
@@ -200,6 +201,58 @@ export default function HabitCard({
           />
         )}
 
+        {/* 8-Partition Ocean Water Wave Fill for Drink Water Habits */}
+        {isWaterHabit && targetCount > 1 && !isLocked && (
+          <>
+            {/* 8 Equal Partition Dividers */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 grid"
+              style={{ gridTemplateColumns: `repeat(${targetCount}, minmax(0, 1fr))` }}
+            >
+              {Array.from({ length: targetCount }, (_, idx) => (
+                <div
+                  key={idx}
+                  className="h-full border-r last:border-r-0"
+                  style={{
+                    borderColor:
+                      idx < currentCount
+                        ? 'rgba(125,211,252,0.22)'
+                        : 'rgba(255,255,255,0.04)',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Rolling Ocean Wave Fill from Left */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 overflow-visible"
+              style={{
+                width: `${Math.min(100, Math.max(0, waterRatio * 100))}%`,
+                background:
+                  'linear-gradient(90deg, rgba(14,165,233,0.24) 0%, rgba(56,189,248,0.36) 75%, rgba(125,211,252,0.48) 100%)',
+                transition: 'width 700ms cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+            >
+              {currentCount > 0 && currentCount < targetCount && (
+                <motion.svg
+                  viewBox="0 0 18 100"
+                  preserveAspectRatio="none"
+                  className="absolute -right-[10px] -top-3 h-[calc(100%+24px)] w-[18px]"
+                  animate={{ y: [-5, 5, -5] }}
+                  transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+                >
+                  <path
+                    d="M0,0 C9,14 2,28 8,42 C14,56 3,72 9,86 C13,94 6,100 0,100 L0,0 Z"
+                    fill="rgba(125,211,252,0.55)"
+                  />
+                </motion.svg>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="relative z-10 flex items-center gap-3">
           {/* Orange Icon Chip */}
           <div
@@ -218,14 +271,22 @@ export default function HabitCard({
 
           {/* Middle Info */}
           <div className="flex-1 min-w-0">
-            <p
-              className={`text-[15px] font-bold truncate transition-all duration-300 ${
-                isCompleted
-                  ? 'line-through text-text-secondary opacity-75 decoration-[#FF6A00] decoration-2'
-                  : 'text-text-primary'
-              }`}
-            >
-              {habit.name}
+            <p className="text-[15px] font-bold truncate">
+              <span
+                className={`relative inline-block max-w-full align-bottom truncate transition-colors duration-300 ${
+                  isCompleted ? 'text-text-secondary opacity-80' : 'text-text-primary'
+                }`}
+              >
+                {habit.name}
+                <motion.span
+                  aria-hidden
+                  initial={false}
+                  animate={{ scaleX: isCompleted ? 1 : 0 }}
+                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ transformOrigin: 'left center' }}
+                  className="pointer-events-none absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-[#FF6A00]"
+                />
+              </span>
             </p>
 
             {/* Timed habit progress subtitle (like Image 2) */}

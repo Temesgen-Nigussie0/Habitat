@@ -1,7 +1,7 @@
 import type { Task, UserProfile } from '../db/types'
 
 export type TaskViewMode = 'BENTO' | 'EISENHOWER' | 'KANBAN'
-export type TaskPriorityFilter = 'ALL' | 'LOW' | 'MEDIUM' | 'URGENT'
+export type TaskPriorityFilter = 'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type KanbanStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'SHIPPED'
 
 export const DEFAULT_WORKSPACES = [
@@ -84,12 +84,10 @@ export function filterAndSortTasks(
     list = list.filter((t) => t.priority.toLowerCase() === 'low')
   } else if (priorityFilter === 'MEDIUM') {
     list = list.filter((t) => t.priority.toLowerCase() === 'medium')
+  } else if (priorityFilter === 'HIGH') {
+    list = list.filter((t) => t.priority.toLowerCase() === 'high')
   } else if (priorityFilter === 'URGENT') {
-    list = list.filter(
-      (t) =>
-        t.priority.toLowerCase() === 'urgent' ||
-        t.priority.toLowerCase() === 'high'
-    )
+    list = list.filter((t) => t.priority.toLowerCase() === 'urgent')
   }
 
   return [...list].sort((a, b) => {

@@ -142,15 +142,20 @@ export default function TasksScreen() {
     return () => window.clearTimeout(t)
   }, [actionToast])
 
+  const tasksLoaded = tasks !== undefined
   useEffect(() => {
-    if (selectedDayRef.current) {
-      selectedDayRef.current.scrollIntoView({
-        inline: 'center',
-        block: 'nearest',
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-      })
-    }
-  }, [selectedMonth, viewMode, prefersReducedMotion])
+    if (!tasksLoaded) return
+    const timer = window.setTimeout(() => {
+      if (selectedDayRef.current) {
+        selectedDayRef.current.scrollIntoView({
+          inline: 'center',
+          block: 'nearest',
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        })
+      }
+    }, 40)
+    return () => window.clearTimeout(timer)
+  }, [tasksLoaded, selectedMonth, selectedDateStr, viewMode, prefersReducedMotion])
 
   const workspaces = useMemo(
     () => getWorkspacesFromProfile(profile),
@@ -353,7 +358,7 @@ export default function TasksScreen() {
     : mediumTasks.slice(0, 4)
 
   return (
-    <Screen noNav={addEditOpen} className="px-4 pb-28">
+    <Screen noNav={addEditOpen || Boolean(specTask)} className="px-4 pb-28">
       {/* Toast for Alert chip */}
       {toastMsg && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#FF453A]/50 bg-[#1C1C20] px-4 py-2 text-[13px] font-semibold text-[#F5F5F7] shadow-xl">
@@ -791,6 +796,37 @@ export default function TasksScreen() {
               Today&apos;s Task
             </h2>
 
+            {/* Priority Filter Pills (default: none selected; tap again to clear) */}
+            <div className="mb-3.5 grid grid-cols-4 gap-2">
+              {(
+                [
+                  { key: 'URGENT', label: 'Urgent', color: '#FF453A' },
+                  { key: 'HIGH', label: 'High', color: '#FF6A00' },
+                  { key: 'MEDIUM', label: 'Medium', color: '#FF9F0A' },
+                  { key: 'LOW', label: 'Low', color: '#0A84FF' },
+                ] as const
+              ).map(({ key, label, color }) => {
+                const active = priorityFilter === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      setPriorityFilter((prev) => (prev === key ? 'ALL' : key))
+                    }
+                    className="min-h-[38px] rounded-full border text-[12px] font-bold transition-all active:scale-95"
+                    style={{
+                      backgroundColor: active ? `${color}26` : '#161618',
+                      borderColor: active ? color : '#242428',
+                      color: active ? color : '#A1A1AA',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
             {filteredTasks.length === 0 ? (
               <div className="rounded-[22px] border border-[#242428] bg-[#161618] p-8 text-center">
                 <p className="text-[14px] font-medium text-[#8E8E93]">
@@ -822,8 +858,7 @@ export default function TasksScreen() {
                       onPointerCancel={cancelLongPress}
                       onClick={() => {
                         if (longPressTriggeredRef.current) return
-                        setEditingTask(task)
-                        setAddEditOpen(true)
+                        setSpecTask(task)
                       }}
                       className="flex cursor-pointer select-none items-center justify-between gap-3 rounded-[22px] border border-[#242428] bg-[#161618] p-4 active:scale-[0.99]"
                     >
@@ -932,10 +967,15 @@ export default function TasksScreen() {
         }}
       />
 
-      {/* Task Specifications Long-Press Sheet */}
+      {/* Task Specifications Sheet */}
       <TaskSpecificationsSheet
         task={specTask}
         onClose={() => setSpecTask(null)}
+        onEdit={(t) => {
+          setSpecTask(null)
+          setEditingTask(t)
+          setAddEditOpen(true)
+        }}
       />
     </Screen>
   )

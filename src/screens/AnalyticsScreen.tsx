@@ -20,7 +20,6 @@ import StreakHeatmap from '../components/StreakHeatmap'
 import PillarRadarMatrix from '../components/PillarRadarMatrix'
 import StreakFreezeProtocolCard from '../components/StreakFreezeProtocolCard'
 import MilestoneBadgesSection from '../components/MilestoneBadgesSection'
-import SmartSchedulerCard from '../components/SmartSchedulerCard'
 import {
   useActiveBossChallenge,
   useAllEntries,
@@ -32,7 +31,6 @@ import {
 import {
   activateStreakFreeze,
   setComebackProtocolActive,
-  updateSmartSchedule,
 } from '../db/actions'
 import {
   getHabitConsistencyRate7Days,
@@ -40,7 +38,6 @@ import {
   getMilestoneBadges,
   getPillarScores,
   getProductionDomains,
-  getSmartHabitSuggestions,
   getTaskCompletionStats,
   getTotalActionsCount,
 } from '../lib/analytics'
@@ -118,21 +115,6 @@ export default function AnalyticsScreen() {
   const badges = useMemo(
     () => getMilestoneBadges(habitList, entryList, activeBossChallenge),
     [habitList, entryList, activeBossChallenge]
-  )
-
-  const savedTimesMap = useMemo(() => {
-    try {
-      return profile?.smartScheduleTimes
-        ? (JSON.parse(profile.smartScheduleTimes) as Record<number, string>)
-        : {}
-    } catch {
-      return {}
-    }
-  }, [profile?.smartScheduleTimes])
-
-  const smartSuggestions = useMemo(
-    () => getSmartHabitSuggestions(habitList, savedTimesMap),
-    [habitList, savedTimesMap]
   )
 
   const isTodayFrozen = useMemo(
@@ -334,17 +316,6 @@ export default function AnalyticsScreen() {
 
           {/* 7. Milestone Badges */}
           <MilestoneBadgesSection badges={badges} />
-
-          {/* 8. Smart Habit Scheduler */}
-          <SmartSchedulerCard
-            suggestions={smartSuggestions}
-            enabled={profile?.smartSchedulerEnabled ?? true}
-            onSaveSchedule={async (enabled, map) => {
-              await updateSmartSchedule(enabled, map)
-            }}
-            onTriggerTestToast={(msg) => setToastMsg(msg)}
-            habitsCount={habitList.length}
-          />
         </div>
       )}
     </Screen>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { motion } from 'framer-motion'
 import {
   Bell,
   Lock,
@@ -84,6 +85,7 @@ export default function TodayScreen() {
 
   const [lockedToast, setLockedToast] = useState<string | null>(null)
   const [actionToast, setActionToast] = useState<ActionToastData | null>(null)
+  const [settlingHabitIds, setSettlingHabitIds] = useState<Set<number>>(new Set())
   const [showCelebration, setShowCelebration] = useState(false)
   const prevDoneRef = useRef<number | null>(null)
   const selectedDayRef = useRef<HTMLButtonElement | null>(null)
@@ -228,8 +230,12 @@ export default function TodayScreen() {
     )
   }, [scheduledHabits, selectedFilter])
 
-  const activeHabits = filteredHabits.filter((h) => !entryMap.get(h.id!)?.isCompleted)
-  const completedHabits = filteredHabits.filter((h) => entryMap.get(h.id!)?.isCompleted)
+  const activeHabits = filteredHabits.filter(
+    (h) => !entryMap.get(h.id!)?.isCompleted || settlingHabitIds.has(h.id!)
+  )
+  const completedHabits = filteredHabits.filter(
+    (h) => entryMap.get(h.id!)?.isCompleted && !settlingHabitIds.has(h.id!)
+  )
 
   // Trigger particle celebration the first time all habits for today are completed
   useEffect(() => {
@@ -279,11 +285,34 @@ export default function TodayScreen() {
     setViewMenuOpen(false)
   }
 
+  const triggerSettleGlide = (habitId: number) => {
+    setSettlingHabitIds((prev) => {
+      const next = new Set(prev)
+      next.add(habitId)
+      return next
+    })
+    window.setTimeout(() => {
+      setSettlingHabitIds((prev) => {
+        if (!prev.has(habitId)) return prev
+        const next = new Set(prev)
+        next.delete(habitId)
+        return next
+      })
+    }, 650)
+  }
+
   const handleToggleHabit = async (habit: Habit) => {
     if (!habit.id) return
     if (isLocked) {
       showLockedMessage()
       return
+    }
+    const existing = entryMap.get(habit.id)
+    const willComplete =
+      !existing?.isCompleted &&
+      (habit.targetCount <= 1 || (existing?.currentCount ?? 0) + 1 >= habit.targetCount)
+    if (willComplete) {
+      triggerSettleGlide(habit.id)
     }
     await toggleHabitCompletion(habit.id, selectedDate, habit.targetCount)
   }
@@ -293,6 +322,12 @@ export default function TodayScreen() {
     if (isLocked) {
       showLockedMessage()
       return
+    }
+    const existing = entryMap.get(habit.id)
+    const willComplete =
+      !existing?.isCompleted && (existing?.currentCount ?? 0) + 1 >= habit.targetCount
+    if (willComplete) {
+      triggerSettleGlide(habit.id)
     }
     await incrementHabitCounter(habit.id, selectedDate, habit.targetCount)
   }
@@ -666,19 +701,26 @@ export default function TodayScreen() {
             ) : (
               <div className={`space-y-3 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
                 {activeHabits.map((habit) => (
-                  <HabitCard
+                  <motion.div
                     key={habit.id}
-                    habit={habit}
-                    entry={entryMap.get(habit.id!)}
-                    isLocked={isLocked}
-                    timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
-                    onToggle={() => handleToggleHabit(habit)}
-                    onIncrement={() => handleIncrementHabit(habit)}
-                    onToggleTimer={() => handleToggleTimer(habit)}
-                    onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
-                    onOpenDetail={() => setDetailHabit(habit)}
-                    onLockedClick={showLockedMessage}
-                  />
+                    layout
+                    transition={{
+                      layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                    }}
+                  >
+                    <HabitCard
+                      habit={habit}
+                      entry={entryMap.get(habit.id!)}
+                      isLocked={isLocked}
+                      timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
+                      onToggle={() => handleToggleHabit(habit)}
+                      onIncrement={() => handleIncrementHabit(habit)}
+                      onToggleTimer={() => handleToggleTimer(habit)}
+                      onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
+                      onOpenDetail={() => setDetailHabit(habit)}
+                      onLockedClick={showLockedMessage}
+                    />
+                  </motion.div>
                 ))}
 
                 {/* Collapsed Completed Section */}
@@ -708,19 +750,29 @@ export default function TodayScreen() {
                     {completedExpanded && (
                       <div className="space-y-3 mt-3">
                         {completedHabits.map((habit) => (
-                          <HabitCard
+                          <motion.div
                             key={habit.id}
-                            habit={habit}
-                            entry={entryMap.get(habit.id!)}
-                            isLocked={isLocked}
-                            timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
-                            onToggle={() => handleToggleHabit(habit)}
-                            onIncrement={() => handleIncrementHabit(habit)}
-                            onToggleTimer={() => handleToggleTimer(habit)}
-                            onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
-                            onOpenDetail={() => setDetailHabit(habit)}
-                            onLockedClick={showLockedMessage}
-                          />
+                            layout
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                              duration: 0.3,
+                            }}
+                          >
+                            <HabitCard
+                              habit={habit}
+                              entry={entryMap.get(habit.id!)}
+                              isLocked={isLocked}
+                              timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
+                              onToggle={() => handleToggleHabit(habit)}
+                              onIncrement={() => handleIncrementHabit(habit)}
+                              onToggleTimer={() => handleToggleTimer(habit)}
+                              onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
+                              onOpenDetail={() => setDetailHabit(habit)}
+                              onLockedClick={showLockedMessage}
+                            />
+                          </motion.div>
                         ))}
                       </div>
                     )}

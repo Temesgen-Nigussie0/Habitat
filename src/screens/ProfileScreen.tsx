@@ -84,6 +84,7 @@ export default function ProfileScreen() {
 
   const [editBioOpen, setEditBioOpen] = useState(false)
   const [retakeConfirmOpen, setRetakeConfirmOpen] = useState(false)
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
   const [cropState, setCropState] = useState<{
     src: string
@@ -241,8 +242,14 @@ export default function ProfileScreen() {
         <div className="-mt-[42px] flex items-end justify-between">
           <button
             type="button"
-            aria-label="Change Profile Photo"
-            onClick={() => avatarInputRef.current?.click()}
+            aria-label={profile?.avatarUri ? 'Profile Photo Options' : 'Add Profile Photo'}
+            onClick={() => {
+              if (profile?.avatarUri) {
+                setAvatarMenuOpen(true)
+              } else {
+                avatarInputRef.current?.click()
+              }
+            }}
             className="relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-full border-[2.5px] border-[#FF6A00] bg-[#161618] active:scale-95"
           >
             {profile?.avatarUri ? (
@@ -259,10 +266,6 @@ export default function ProfileScreen() {
                 </span>
               </div>
             )}
-
-            <span className="absolute bottom-0.5 right-0.5 flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 border-[#0D0D0E] bg-[#FF6A00]">
-              <Camera className="h-3 w-3 text-white" />
-            </span>
           </button>
 
           <button
@@ -459,6 +462,48 @@ export default function ProfileScreen() {
           }
         }}
       />
+
+      {/* Profile Photo Options Sheet */}
+      {avatarMenuOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => setAvatarMenuOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-[390px] rounded-[24px] border border-[#2C2C30] bg-[#161618] p-4 space-y-2.5 shadow-2xl">
+            <p className="px-2 pb-1 text-center text-[13px] font-bold text-[#8E8E93]">
+              Profile Photo
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setAvatarMenuOpen(false)
+                avatarInputRef.current?.click()
+              }}
+              className="w-full min-h-[48px] rounded-[14px] bg-[#FF6A00] text-[14px] font-bold text-white active:scale-[0.98]"
+            >
+              Change Profile Photo
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setAvatarMenuOpen(false)
+                await upsertUserProfile({ avatarUri: null })
+              }}
+              className="w-full min-h-[48px] rounded-[14px] bg-[#FF453A]/15 text-[14px] font-bold text-[#FF453A] active:scale-[0.98]"
+            >
+              Remove Profile Photo
+            </button>
+            <button
+              type="button"
+              onClick={() => setAvatarMenuOpen(false)}
+              className="w-full min-h-[46px] rounded-[14px] border border-[#2C2C30] bg-[#0D0D0E] text-[14px] font-semibold text-[#A1A1AA] active:scale-[0.98]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Retake Onboarding Confirm Modal */}
       {retakeConfirmOpen && (
