@@ -15,11 +15,13 @@ export default function Screen({ children, className = '', noNav = false }: Scre
 
   return (
     <div
-      className={`relative bg-black overflow-y-auto overflow-x-hidden scrollbar-hidden ${className}`}
+      className={`relative bg-black overflow-y-auto overflow-x-hidden scrollbar-hidden ${
+        noNav ? '' : 'md:pl-[236px]'
+      } ${className}`}
       style={{
         height: '100dvh',
         paddingTop: 'env(safe-area-inset-top)',
-        // Extra bottom padding to clear the floating nav
+        // Extra bottom padding on mobile to clear the floating nav; compact on desktop
         paddingBottom: noNav
           ? 'env(safe-area-inset-bottom)'
           : 'calc(env(safe-area-inset-bottom) + 90px)',
@@ -36,7 +38,7 @@ export default function Screen({ children, className = '', noNav = false }: Scre
         initial={prefersReduced ? false : { opacity: 0, y: 12, scale: 0.99 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full min-h-full"
+        className="relative z-10 w-full min-h-full md:mx-auto md:max-w-[920px] md:px-6 md:py-4 md:pb-12"
       >
         {children}
       </motion.div>

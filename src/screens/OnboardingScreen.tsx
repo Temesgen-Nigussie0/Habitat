@@ -1,8 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, Flame, Fingerprint, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Cloud, Flame, Fingerprint, RefreshCw, Zap } from 'lucide-react'
 import { completeOnboarding } from '../db/actions'
+import { db } from '../db/db'
+import { syncWithSupabase } from '../lib/cloudSync'
+import {
+  getSupabaseClient,
+  isSupabaseAuthConfigured,
+  signInWithGoogle,
+} from '../lib/supabaseClient'
 import {
   Q1_FOCUS_OPTIONS,
   Q2_CONSISTENCY_OPTIONS,
@@ -42,13 +49,64 @@ export default function OnboardingScreen() {
   const navigate = useNavigate()
   const prefersReducedMotion = useReducedMotion()
 
-  // step: 0 = Welcome, 1..10 = Questions 1..10, 11 = Final Calibration
+  // step: 0 = Welcome (or Sync Gate), 1..10 = Questions 1..10, 11 = Final Calibration
   const [step, setStep] = useState(0)
+  const [showSyncGate, setShowSyncGate] = useState(false)
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [direction, setDirection] = useState(1)
   const [form, setForm] = useState<OnboardingFormState>(INITIAL_STATE)
   const [customOccupation, setCustomOccupation] = useState('')
   const [extraOccupations, setExtraOccupations] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
+
+  // If user returns from Google OAuth on /onboarding, automatically restore their cloud data
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+
+    let active = true
+    const handleSignedIn = async (fullName?: string) => {
+      if (!active) return
+      setIsSyncingCloud(true)
+      setSyncError(null)
+      const res = await syncWithSupabase()
+      if (!active) return
+      setIsSyncingCloud(false)
+      if (!res.ok && res.error) {
+        setSyncError(res.error)
+        return
+      }
+      const syncedProfile = await db.userProfile.get(1)
+      if (syncedProfile?.isOnboardingCompleted) {
+        navigate('/', { replace: true })
+      } else {
+        if (fullName) {
+          setForm((prev) => (prev.userName ? prev : { ...prev, userName: fullName }))
+        }
+        setShowSyncGate(false)
+        setDirection(1)
+        setStep(1)
+      }
+    }
+
+    void supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        void handleSignedIn(data.user.user_metadata?.full_name as string | undefined)
+      }
+    })
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        void handleSignedIn(session.user.user_metadata?.full_name as string | undefined)
+      }
+    })
+
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
+  }, [navigate])
 
   // Q10 Press & Hold state (2 seconds)
   const [holdProgress, setHoldProgress] = useState(0)
@@ -190,13 +248,16 @@ export default function OnboardingScreen() {
 
   return (
     <div
-      className="bg-obsidian text-text-primary flex flex-col overflow-hidden"
+      className="bg-obsidian text-text-primary flex flex-col overflow-hidden md:items-center md:justify-center md:p-6"
       style={{
         height: '100dvh',
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
+        background:
+          'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(var(--accent-rgb, 255, 106, 0), 0.12) 0%, #070709 70%)',
       }}
     >
+      <div className="flex flex-1 flex-col w-full h-full overflow-hidden md:flex-initial md:max-w-[540px] md:h-[min(820px,calc(100dvh-48px))] md:rounded-[28px] md:border md:border-border md:bg-surface/95 md:shadow-2xl">
       {/* Top Progress Header (steps 1..11) */}
       {step >= 1 && (
         <header className="px-5 pt-3 pb-2 flex-shrink-0">
@@ -246,7 +307,7 @@ export default function OnboardingScreen() {
             transition={{ duration: 0.22, ease: 'easeOut' }}
             className="min-h-full flex flex-col"
           >
-            {step === 0 && (
+            {step === 0 && !showSyncGate && (
               <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center">
                 {/* Hero circle with subtle wave rings */}
                 <div className="relative w-56 h-56 flex items-center justify-center mb-6">
@@ -288,13 +349,95 @@ export default function OnboardingScreen() {
 
                 <button
                   type="button"
-                  onClick={goNext}
+                  onClick={() => {
+                    if (isSupabaseAuthConfigured()) {
+                      setShowSyncGate(true)
+                    } else {
+                      goNext()
+                    }
+                  }}
                   className="mt-8 w-full max-w-[320px] min-h-[54px] rounded-full bg-orange text-white font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                   style={{ boxShadow: '0 6px 24px rgba(255,106,0,0.38)' }}
                 >
                   <span>Get started</span>
                   <ArrowRight size={20} />
                 </button>
+              </div>
+            )}
+
+            {step === 0 && showSyncGate && (
+              <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center">
+                <div
+                  className="mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-orange/40 bg-orange/15 text-orange"
+                  style={{ boxShadow: '0 0 36px rgba(255,106,0,0.22)' }}
+                >
+                  {isSyncingCloud ? (
+                    <RefreshCw size={32} className="animate-spin" />
+                  ) : (
+                    <Cloud size={32} />
+                  )}
+                </div>
+
+                <h2 className="text-[24px] font-extrabold text-text-primary leading-tight">
+                  {isSyncingCloud ? 'Restoring Your Habitat...' : 'Already Using Habitat?'}
+                </h2>
+                <p className="mt-2.5 max-w-[310px] text-[14px] leading-relaxed text-text-secondary">
+                  {isSyncingCloud
+                    ? 'Syncing your habits, tasks, and streaks from the cloud.'
+                    : 'Sign in with Google to sync your existing habits, tasks & streaks — or skip to start fresh.'}
+                </p>
+
+                {syncError && (
+                  <p className="mt-3 rounded-[12px] border border-red/40 bg-red/10 px-3.5 py-2 text-xs text-red">
+                    {syncError}
+                  </p>
+                )}
+
+                {!isSyncingCloud && (
+                  <div className="mt-8 w-full max-w-[320px] space-y-3">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSyncError(null)
+                        const res = await signInWithGoogle('/onboarding')
+                        if (res.error) setSyncError(res.error)
+                      }}
+                      className="flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-full bg-white px-5 text-[15px] font-bold text-[#0D0D0E] shadow-lg active:scale-[0.98] transition-transform"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden>
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+                        />
+                      </svg>
+                      <span>Continue with Google</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSyncGate(false)
+                        goNext()
+                      }}
+                      className="flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full border border-[#2C2C30] bg-[#14141A] px-5 text-[14px] font-semibold text-text-secondary active:scale-[0.98] transition-transform"
+                    >
+                      <span>Skip &amp; Start Fresh</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -674,6 +817,7 @@ export default function OnboardingScreen() {
           </button>
         </div>
       )}
+      </div>
     </div>
   )
 }

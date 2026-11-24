@@ -769,7 +769,7 @@ export default function TodayScreen() {
                 }}
               />
             ) : (
-              <div className={`space-y-3 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
+              <div className={`space-y-3 md:grid md:grid-cols-2 md:gap-3.5 md:space-y-0 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
                 {activeHabits.map((habit) => (
                   <motion.div
                     key={habit.id}

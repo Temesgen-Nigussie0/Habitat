@@ -24,13 +24,16 @@ export function getSupabaseClient(): SupabaseClient | null {
   return cachedClient
 }
 
-export async function signInWithGoogle(): Promise<{ error?: string }> {
+export async function signInWithGoogle(
+  redirectPath: string = '/profile'
+): Promise<{ error?: string }> {
   const supabase = getSupabaseClient()
   if (!supabase) {
     return { error: 'Supabase is not configured yet.' }
   }
+  const normalizedPath = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`
   const redirectTo =
-    typeof window !== 'undefined' ? `${window.location.origin}/profile` : undefined
+    typeof window !== 'undefined' ? `${window.location.origin}${normalizedPath}` : undefined
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

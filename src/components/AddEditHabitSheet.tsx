@@ -216,7 +216,7 @@ export default function AddEditHabitSheet({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center md:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -231,7 +231,7 @@ export default function AddEditHabitSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-            className="relative w-full max-w-[430px] max-h-[90dvh] rounded-t-[28px] bg-surface border-t border-x border-border-highlight flex flex-col overflow-hidden"
+            className="relative w-full max-w-[430px] max-h-[90dvh] rounded-t-[28px] md:rounded-[28px] bg-surface border-t border-x md:border border-border-highlight flex flex-col overflow-hidden"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             {/* Drag handle + Header */}

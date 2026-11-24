@@ -73,7 +73,7 @@ export default function HabitDetailSheet({
   return (
     <AnimatePresence>
       {habit && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center md:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -90,7 +90,7 @@ export default function HabitDetailSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-            className="relative w-full max-w-[430px] rounded-t-[28px] bg-surface border-t border-x border-border-highlight p-5"
+            className="relative w-full max-w-[430px] rounded-t-[28px] md:rounded-[28px] bg-surface border-t border-x md:border border-border-highlight p-5"
             style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 8px)' }}
           >
             {/* Top row */}
