@@ -1,6 +1,12 @@
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Home, ClipboardList, Flame, BarChart2, User } from 'lucide-react'
+import { Home, ClipboardList, Flame, BarChart2, User, LogOut } from 'lucide-react'
+import {
+  getSupabaseClient,
+  isSupabaseAuthConfigured,
+  signOutGoogle,
+} from '../lib/supabaseClient'
 
 type TabDef = {
   icon: React.ComponentType<{ size: number; color?: string; strokeWidth?: number; className?: string }>
@@ -27,6 +33,51 @@ const desktopNavItems: Array<TabDef & { isBoss?: boolean }> = [
 export default function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
+
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    let active = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      const u = data.session?.user
+      setUserEmail(u?.email ?? null)
+      setUserName(
+        (u?.user_metadata?.full_name as string | undefined) ||
+          (u?.user_metadata?.name as string | undefined) ||
+          null
+      )
+    })
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+      const u = session?.user
+      setUserEmail(u?.email ?? null)
+      setUserName(
+        (u?.user_metadata?.full_name as string | undefined) ||
+          (u?.user_metadata?.name as string | undefined) ||
+          null
+      )
+    })
+
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
+  }, [])
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    try {
+      await signOutGoogle()
+    } finally {
+      setSigningOut(false)
+    }
+  }
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/'
@@ -159,11 +210,46 @@ export default function BottomNav() {
           </nav>
         </div>
 
-        <div className="rounded-[16px] border border-border bg-elevated/70 p-3.5">
-          <p className="text-[11px] font-bold text-text-primary">Desktop Workspace</p>
-          <p className="mt-0.5 text-[11px] text-text-tertiary leading-snug">
-            Synced &amp; offline-ready across your devices.
-          </p>
+        <div className="rounded-[16px] border border-border bg-elevated/70 p-3.5 space-y-2.5">
+          {userEmail ? (
+            <>
+              <div className="min-w-0">
+                <p className="text-[12px] font-bold text-text-primary truncate">
+                  {userName || 'Google Connected'}
+                </p>
+                <p className="mt-0.5 text-[11px] text-text-tertiary truncate">
+                  {userEmail}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="w-full h-9 rounded-[10px] border border-border bg-bg/70 hover:bg-bg hover:border-orange/40 text-text-secondary hover:text-text-primary text-[12px] font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+              >
+                <LogOut size={14} />
+                <span>{signingOut ? 'Signing out...' : 'Sign Out'}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="text-[11px] font-bold text-text-primary">Desktop Workspace</p>
+                <p className="mt-0.5 text-[11px] text-text-tertiary leading-snug">
+                  Synced &amp; offline-ready across your devices.
+                </p>
+              </div>
+              {isSupabaseAuthConfigured() && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile')}
+                  className="w-full h-8 rounded-[10px] bg-orange/15 hover:bg-orange/25 border border-orange/30 text-orange text-[11px] font-bold transition-colors"
+                >
+                  Connect Google
+                </button>
+              )}
+            </>
+          )}
         </div>
       </aside>
     </>

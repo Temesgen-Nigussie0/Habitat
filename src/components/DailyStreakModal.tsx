@@ -103,7 +103,7 @@ export default function DailyStreakModal({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex flex-col justify-between bg-[#070709] text-white overflow-hidden select-none"
+          className="fixed inset-0 z-50 flex flex-col justify-between md:items-center md:justify-center bg-[#070709] md:bg-[#050507]/92 md:backdrop-blur-md text-white overflow-hidden select-none md:p-6"
           style={{
             height: '100dvh',
             maxHeight: '100dvh',
@@ -111,8 +111,22 @@ export default function DailyStreakModal({
             paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
           }}
         >
-          {/* Top Bar: < Home */}
-          <div className="flex items-center px-4 py-1 flex-shrink-0">
+          {/* Ambient Atmospheric Spotlight */}
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 overflow-hidden"
+          >
+            <div
+              className="absolute left-1/2 top-[28%] md:top-[42%] -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-3xl opacity-75"
+              style={{
+                background:
+                  'radial-gradient(circle, rgba(255,106,0,0.22) 0%, rgba(255,140,0,0.08) 42%, transparent 72%)',
+              }}
+            />
+          </div>
+
+          {/* Mobile Top Bar: < Home */}
+          <div className="relative z-10 flex md:hidden items-center px-4 py-1 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -123,26 +137,52 @@ export default function DailyStreakModal({
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-between px-4 max-w-[420px] mx-auto w-full py-1 overflow-hidden min-h-0">
+          <div className="relative z-10 flex-1 md:flex-none flex flex-col items-center justify-between px-4 max-w-[420px] md:max-w-[460px] mx-auto w-full py-1 md:p-6 md:rounded-[32px] md:border md:border-[#2C2C36] md:bg-[#0D0D12]/90 md:backdrop-blur-2xl md:shadow-[0_24px_80px_rgba(255,106,0,0.18)] overflow-hidden min-h-0">
+            {/* Desktop Card Top Bar */}
+            <div className="hidden md:flex w-full items-center justify-between mb-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#24242E] bg-[#16161B] px-3 py-1.5 text-[12px] font-semibold text-[#F5F5F7] hover:border-[#FF6A00]/45 hover:bg-[#1C1C24] transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4 text-[#F5F5F7]" />
+                <span>Home</span>
+              </button>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FF6A00]/30 bg-[#FF6A00]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#FF8A33]">
+                <Flame className="h-3 w-3 text-[#FF6A00]" />
+                {isLevelUpMode ? 'Streak Extended' : 'Daily Momentum'}
+              </span>
+            </div>
+
             {/* Center Flame & Streak Info */}
-            <div className="flex flex-col items-center text-center my-auto flex-shrink-0">
-              <RealisticBurningFlame size={105} />
+            <div className="relative flex flex-col items-center text-center my-auto flex-shrink-0 md:py-2">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 w-36 h-36 rounded-full blur-2xl"
+                style={{
+                  background:
+                    'radial-gradient(circle, rgba(255,106,0,0.34) 0%, rgba(255,159,10,0.08) 55%, transparent 75%)',
+                }}
+              />
+              <div className="relative">
+                <RealisticBurningFlame size={105} />
+              </div>
 
               <motion.h1
                 key={displayedStreak}
                 layoutId={!isLevelUpMode ? 'streak-morph-badge' : undefined}
                 initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="mt-2 text-[44px] font-black tracking-tight leading-none text-white tabular-nums"
+                className="relative mt-2 text-[44px] font-black tracking-tight leading-none text-white tabular-nums"
               >
                 {displayedStreak}
               </motion.h1>
 
-              <p className="mt-0.5 text-[16px] font-bold text-white tracking-wide">
+              <p className="relative mt-0.5 text-[16px] font-bold text-white tracking-wide">
                 {displayedStreak === 1 ? 'day streak' : 'days streak'}
               </p>
 
-              <p className="mt-1 text-[12px] text-[#A1A1AA] max-w-[290px] leading-snug">
+              <p className="relative mt-1 text-[12px] text-[#A1A1AA] max-w-[300px] leading-snug">
                 {isLevelUpMode ? motivationalQuote : 'Keep mining daily to increase your consistency and momentum.'}
               </p>
             </div>
@@ -257,11 +297,11 @@ export default function DailyStreakModal({
             )}
 
             {/* Bottom Continue Button - Always Fully Visible Without Scrolling */}
-            <div className="w-full pt-1 flex-shrink-0">
+            <div className="w-full pt-1 md:pt-2 flex-shrink-0">
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full min-h-[48px] rounded-[16px] bg-[#FF6A00] text-[15px] font-bold text-white shadow-lg shadow-[#FF6A00]/25 active:scale-[0.98] transition-all"
+                className="w-full min-h-[48px] rounded-[16px] bg-gradient-to-r from-[#FF6A00] to-[#FF8A00] hover:brightness-110 text-[15px] font-bold text-white shadow-lg shadow-[#FF6A00]/30 active:scale-[0.98] transition-all"
               >
                 Continue
               </button>

@@ -92,6 +92,7 @@ export default function TodayScreen() {
   const [showCelebration, setShowCelebration] = useState(false)
   const prevDoneRef = useRef<number | null>(null)
   const selectedDayRef = useRef<HTMLButtonElement | null>(null)
+  const stripRef = useRef<HTMLDivElement | null>(null)
 
   const profile = useUserProfile()
   const habits = useHabits()
@@ -156,14 +157,25 @@ export default function TodayScreen() {
   }, [appStartDate, todayStr, selectedDate])
 
   useEffect(() => {
-    if (selectedDayRef.current) {
-      selectedDayRef.current.scrollIntoView({
-        inline: 'center',
-        block: 'nearest',
+    if (isLoading) return
+    const centerSelectedDay = () => {
+      const container = stripRef.current
+      const btn = selectedDayRef.current
+      if (!container || !btn) return
+      const targetLeft =
+        btn.offsetLeft - container.clientWidth / 2 + btn.clientWidth / 2
+      container.scrollTo({
+        left: Math.max(0, targetLeft),
         behavior: 'smooth',
       })
     }
-  }, [selectedDate])
+    const rafId = requestAnimationFrame(centerSelectedDay)
+    const timerId = window.setTimeout(centerSelectedDay, 60)
+    return () => {
+      cancelAnimationFrame(rafId)
+      window.clearTimeout(timerId)
+    }
+  }, [selectedDate, isLoading])
 
   const entryMap = useMemo(() => {
     return new Map((entriesForDate ?? []).map((e) => [e.habitId, e]))
@@ -453,13 +465,12 @@ export default function TodayScreen() {
           {isNightMode && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 overflow-hidden select-none"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) * -1 - 4px)' }}
+              className="pointer-events-none absolute inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top,0px)*-1-4px)] md:fixed md:left-[236px] md:right-0 md:top-0 md:bottom-auto md:h-[225px] md:z-0 overflow-hidden select-none"
             >
               <img
                 src="/images/night-sky.jpg"
                 alt=""
-                className="h-full w-full object-cover object-[72%_38%] opacity-35"
+                className="h-full w-full object-cover object-[72%_38%] opacity-35 md:opacity-45"
               />
               <div
                 className="absolute inset-0"
@@ -595,6 +606,7 @@ export default function TodayScreen() {
 
         {/* Week Strip */}
         <div
+          ref={stripRef}
           className="relative z-10 flex gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
@@ -608,7 +620,7 @@ export default function TodayScreen() {
                 type="button"
                 onClick={() => setSelectedDate(d.dateStr)}
                 aria-label={d.isFuture ? `${d.dateStr} upcoming` : d.dateStr}
-                className="min-w-[46px] flex-1 flex flex-col items-center justify-center rounded-[14px] py-2 gap-0.5 transition-colors shrink-0"
+                className="min-w-[46px] flex-1 md:min-w-[54px] md:flex-none flex flex-col items-center justify-center rounded-[14px] py-2 gap-0.5 transition-colors shrink-0"
                 style={{
                   backgroundColor: selected
                     ? isToday
@@ -769,31 +781,35 @@ export default function TodayScreen() {
                 }}
               />
             ) : (
-              <div className={`space-y-3 md:grid md:grid-cols-2 md:gap-3.5 md:space-y-0 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
-                {activeHabits.map((habit) => (
-                  <motion.div
-                    key={habit.id}
-                    layout
-                    transition={{
-                      layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
-                    }}
-                  >
-                    <HabitCard
-                      habit={habit}
-                      entry={entryMap.get(habit.id!)}
-                      isLocked={isLocked}
-                      isSkipped={skippedHabitIds.has(habit.id!)}
-                      timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
-                      onToggle={() => handleToggleHabit(habit)}
-                      onIncrement={() => handleIncrementHabit(habit)}
-                      onToggleTimer={() => handleToggleTimer(habit)}
-                      onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
-                      onSkipToday={() => handleToggleSkipHabit(habit)}
-                      onOpenDetail={() => setDetailHabit(habit)}
-                      onLockedClick={showLockedMessage}
-                    />
-                  </motion.div>
-                ))}
+              <div className={`space-y-4 pb-4 ${isLocked ? 'opacity-60' : ''}`}>
+                {activeHabits.length > 0 && (
+                  <div className="space-y-3 md:grid md:grid-cols-2 md:gap-3.5 md:space-y-0">
+                    {activeHabits.map((habit) => (
+                      <motion.div
+                        key={habit.id}
+                        layout
+                        transition={{
+                          layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                        }}
+                      >
+                        <HabitCard
+                          habit={habit}
+                          entry={entryMap.get(habit.id!)}
+                          isLocked={isLocked}
+                          isSkipped={skippedHabitIds.has(habit.id!)}
+                          timerSnapshot={habit.hasTimer ? getSnapshot(habit) : undefined}
+                          onToggle={() => handleToggleHabit(habit)}
+                          onIncrement={() => handleIncrementHabit(habit)}
+                          onToggleTimer={() => handleToggleTimer(habit)}
+                          onOpenTimer={() => setTimerModalHabitId(habit.id ?? null)}
+                          onSkipToday={() => handleToggleSkipHabit(habit)}
+                          onOpenDetail={() => setDetailHabit(habit)}
+                          onLockedClick={showLockedMessage}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Collapsed Completed Section */}
                 {completedHabits.length > 0 && (
@@ -820,7 +836,7 @@ export default function TodayScreen() {
                     </div>
 
                     {completedExpanded && (
-                      <div className="space-y-3 mt-3">
+                      <div className="space-y-3 mt-3 md:grid md:grid-cols-2 md:gap-3.5 md:space-y-0">
                         {completedHabits.map((habit) => (
                           <motion.div
                             key={habit.id}
