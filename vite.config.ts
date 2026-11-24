@@ -13,7 +13,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'prompt',
-      includeAssets: ['apple-touch-icon.png', 'icons/*.png'],
+      includeAssets: ['apple-touch-icon.png', 'icons/*.png', 'images/*.jpg'],
       manifest: {
         name: 'Habitat',
         short_name: 'Habitat',
@@ -44,7 +44,7 @@ export default defineConfig({
         ]
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,jpg}'],
       }
     })
   ],

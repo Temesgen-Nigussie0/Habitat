@@ -49,6 +49,7 @@ import {
   parseLocalDate,
   recordDailyVisit,
 } from '../lib/streak'
+import { getAmbientMood } from '../lib/ambientTheme'
 import { getDailyCompletionPercent, isFuture } from '../lib/stats'
 import type { Habit } from '../db/types'
 
@@ -380,6 +381,7 @@ export default function TodayScreen() {
   }
 
   const userName = profile?.userName || 'Alex'
+  const isNightMode = getAmbientMood().period === 'night'
 
   return (
     <Screen noNav={addEditOpen || streakModalOpen || Boolean(detailHabit) || Boolean(timerModalHabit)}>
@@ -445,9 +447,32 @@ export default function TodayScreen() {
         </div>
       )}
 
-      <div className="px-5 pt-4 space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
+      <div className="px-5 space-y-5">
+        {/* Top Hero Band: Header + Horizontal Dates (with Night Sky Backdrop in Night Mode) */}
+        <div className="relative -mx-5 px-5 pt-4 pb-1 space-y-5">
+          {isNightMode && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 overflow-hidden select-none"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) * -1 - 4px)' }}
+            >
+              <img
+                src="/images/night-sky.jpg"
+                alt=""
+                className="h-full w-full object-cover object-[72%_38%] opacity-35"
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.10) 52%, rgba(0,0,0,0.92) 94%, #000000 100%)',
+                }}
+              />
+            </div>
+          )}
+
+          {/* Header */}
+          <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="relative flex-shrink-0">
               <button
@@ -570,7 +595,7 @@ export default function TodayScreen() {
 
         {/* Week Strip */}
         <div
-          className="flex gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-hidden"
+          className="relative z-10 flex gap-2 overflow-x-auto pb-1 no-scrollbar scrollbar-hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {weekDays.map((d) => {
@@ -630,6 +655,7 @@ export default function TodayScreen() {
               </button>
             )
           })}
+        </div>
         </div>
 
         {/* Progress Card */}
