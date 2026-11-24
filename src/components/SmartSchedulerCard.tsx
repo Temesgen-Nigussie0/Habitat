@@ -6,6 +6,7 @@ import {
   requestAppNotificationPermission,
   sendNativeNotification,
 } from '../lib/notifications'
+import { ensurePushSubscription } from '../lib/pushSync'
 
 interface SmartSchedulerCardProps {
   suggestions: SmartHabitSuggestion[]
@@ -63,10 +64,17 @@ export default function SmartSchedulerCard({
 
     const res = await requestAppNotificationPermission()
     if (res.granted) {
+      const pushRes = await ensurePushSubscription()
       await sendNativeNotification('Habitat Smart Reminders Active', {
-        body: 'Your personalized habit prompt schedule is synced and running.',
+        body: pushRes.subscribed
+          ? 'Background push is active — alerts will arrive even when Habitat is closed.'
+          : 'Your personalized habit prompt schedule is synced and running.',
       })
-      setNotifNotice('Phone notifications active ✓')
+      setNotifNotice(
+        pushRes.subscribed
+          ? 'Background push active ✓ (alerts arrive even when closed)'
+          : 'Phone notifications active ✓'
+      )
     } else if (res.message) {
       setNotifNotice(res.message)
     }

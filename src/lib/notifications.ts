@@ -6,11 +6,19 @@
  * native notifications through the Service Worker.
  */
 
+import {
+  computeNextHabitNotifyIso,
+  ensurePushSubscription,
+  isBackgroundPushConfigured,
+  syncReminderToSupabase,
+} from './pushSync'
+
 export interface NotificationStatus {
   isSupported: boolean
   isIos: boolean
   isStandalone: boolean
   permission: NotificationPermission | 'unsupported'
+  backgroundPushConfigured: boolean
 }
 
 /** Check if the current device is running iOS (iPhone/iPad/iPod) */
@@ -52,6 +60,7 @@ export function getNotificationStatus(): NotificationStatus {
     isIos: isIosDevice(),
     isStandalone: isStandaloneMode(),
     permission: getNotificationPermission(),
+    backgroundPushConfigured: isBackgroundPushConfigured(),
   }
 }
 
@@ -85,6 +94,7 @@ export async function requestAppNotificationPermission(): Promise<{
   try {
     const result = await Notification.requestPermission()
     if (result === 'granted') {
+      void ensurePushSubscription()
       return { granted: true, status: 'granted' }
     } else if (result === 'denied') {
       return {
@@ -230,6 +240,17 @@ export async function scheduleTaskReminder(
       })
     }, delay)
   }
+
+  // Sync to Supabase so background Web Push fires even when the app is closed
+  if (targetTimestamp > Date.now()) {
+    void syncReminderToSupabase({
+      kind: 'task',
+      itemKey: `${taskTitle.trim().toLowerCase()}|${dateStr}|${timeStr}`,
+      title: `⏰ Task Reminder: ${taskTitle}`,
+      body: `Scheduled for ${timeStr}. Tap to complete in Habitat.`,
+      notifyAtIso: targetDate.toISOString(),
+    })
+  }
 }
 
 const HABIT_REMINDERS_KEY = 'habitat_pending_habit_reminders'
@@ -279,6 +300,16 @@ export async function scheduleHabitReminder(
       })
     }, delay)
   }
+
+  // Sync daily habit reminder to Supabase for background Web Push
+  void syncReminderToSupabase({
+    kind: 'habit',
+    itemKey: habitName.trim().toLowerCase(),
+    title: `🔥 Time for: ${habitName}`,
+    body: `Daily reminder (${timeStr}). Tap to log in Habitat.`,
+    notifyAtIso: computeNextHabitNotifyIso(timeStr),
+    localTime: timeStr,
+  })
 }
 
 /**
