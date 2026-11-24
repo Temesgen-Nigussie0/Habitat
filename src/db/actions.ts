@@ -435,9 +435,20 @@ export async function addQuickHabitIfNew(
   return true
 }
 
+const SAMPLE_ERASE_HABITS = [
+  'Drink 2L Water',
+  '10 Min Meditation',
+  '30 Min Exercise / Walk',
+  'Plan Top 3 Priorities',
+  'Read 15 Pages',
+]
+
 export async function eraseAllData(): Promise<void> {
   const { saveBeforeRestoreSnapshot } = await import('../lib/backup')
   await saveBeforeRestoreSnapshot()
+
+  const today = getTodayLocal()
+  const now = Date.now()
 
   await db.transaction(
     'rw',
@@ -449,8 +460,55 @@ export async function eraseAllData(): Promise<void> {
       await db.userProfile.clear()
       await db.bossChallenges.clear()
       await db.streakFreezes.clear()
-      await db.userProfile.put({ ...DEFAULT_PROFILE, joinedAt: Date.now() })
+
+      await db.userProfile.put({
+        ...DEFAULT_PROFILE,
+        id: 1,
+        isOnboardingCompleted: true,
+        pledgeAccepted: true,
+        joinedAt: now,
+        avatarUri: null,
+        bannerUri: null,
+        streakFreezesAvailable: 0,
+        lastFreezeDate: null,
+        starterHabits: SAMPLE_ERASE_HABITS.join(','),
+      })
+
+      const starterHabits: Omit<Habit, 'id'>[] = SAMPLE_ERASE_HABITS.map((name, idx) => ({
+        ...mapPresetToHabit(name),
+        startDate: today,
+        createdAt: now + idx,
+        currentStreak: 0,
+        bestStreak: 0,
+        lastCompletedDate: null,
+      }))
+      await db.habits.bulkAdd(starterHabits)
     }
   )
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('habitat_app_start_date', today)
+      localStorage.removeItem('habitat_visited_dates')
+      localStorage.removeItem('habitat_last_visited_date')
+      localStorage.removeItem('habitat_streak_levelup_date')
+      localStorage.removeItem('habitat_last_streak_date')
+      localStorage.removeItem('habitat_last_levelup_date')
+      localStorage.removeItem('habitat_sunday_review_dismissed_date')
+      localStorage.removeItem('habitat_habit_timers_v1')
+      localStorage.removeItem('habitat_scheduled_task_reminders_v1')
+      localStorage.removeItem('habitat_scheduled_habit_reminders_v1')
+      localStorage.removeItem('habitat_backup_nudge_dismissed_until')
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const { overwriteCloudSnapshotWithLocal } = await import('../lib/cloudSync')
+    await overwriteCloudSnapshotWithLocal()
+  } catch {
+    // ignore offline / unconfigured cloud errors
+  }
 }
 

@@ -25,6 +25,13 @@ import DailyStreakModal from '../components/DailyStreakModal'
 import ParticleCelebration from '../components/ParticleCelebration'
 import ActionToast, { type ActionToastData } from '../components/ActionToast'
 import EmptyStateIllustration from '../components/EmptyStateIllustration'
+import WeeklyReviewModal from '../components/WeeklyReviewModal'
+import {
+  computeWeeklyReview,
+  dismissSundayReviewForToday,
+  isSundayEvening,
+  shouldAutoShowSundayReview,
+} from '../lib/weeklyReview'
 import { useHabitTimers } from '../context/HabitTimerContext'
 import {
   useHabits,
@@ -74,9 +81,11 @@ export default function TodayScreen() {
   const [timerModalHabitId, setTimerModalHabitId] = useState<number | null>(null)
   const [streakModalOpen, setStreakModalOpen] = useState(false)
   const [isLevelUpModal, setIsLevelUpModal] = useState(false)
+  const [weeklyReviewOpen, setWeeklyReviewOpen] = useState(false)
   const [visitedDates, setVisitedDates] = useState<string[]>(() =>
     recordDailyVisit(todayStr)
   )
+  const sundayReviewReady = isSundayEvening()
 
   const {
     getSnapshot,
@@ -124,6 +133,17 @@ export default function TodayScreen() {
       setStreakModalOpen(true)
     }
   }, [todayStr])
+
+  useEffect(() => {
+    if (!isLoading && !streakModalOpen && shouldAutoShowSundayReview()) {
+      setWeeklyReviewOpen(true)
+    }
+  }, [isLoading, streakModalOpen])
+
+  const weeklyReview = useMemo(
+    () => computeWeeklyReview(habits ?? [], allEntries, visitedDates, todayStr),
+    [habits, allEntries, visitedDates, todayStr]
+  )
 
   const earliestEntryDate = useMemo(() => {
     if (!allEntries || allEntries.length === 0) return null
@@ -719,6 +739,26 @@ export default function TodayScreen() {
           />
         </div>
 
+        {sundayReviewReady && (
+          <button
+            type="button"
+            onClick={() => setWeeklyReviewOpen(true)}
+            className="w-full rounded-[16px] border border-orange/35 bg-gradient-to-r from-[#1D130C] to-[#14141B] px-4 py-2.5 flex items-center justify-between gap-3 text-left hover:border-orange/60 transition-colors"
+          >
+            <div className="min-w-0">
+              <p className="text-[12px] font-bold text-orange">
+                Sunday Review Ready
+              </p>
+              <p className="text-[11px] text-text-secondary truncate">
+                Tap to swipe through Your Week in Review ({weeklyReview.thisWeekRate}% this week)
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-orange/15 px-2.5 py-1 text-[11px] font-bold text-orange">
+              View
+            </span>
+          </button>
+        )}
+
         {viewMode === 'CIRCUIT' ? (
           <div className={isLocked ? 'opacity-60' : ''}>
             <HabitStackCircuitView
@@ -940,6 +980,16 @@ export default function TodayScreen() {
         isLevelUpMode={isLevelUpModal}
         activeDates={dailyStreak.activeDates}
         freezeDates={freezeDateSet}
+      />
+
+      {/* Weekly Sunday Review Story Modal */}
+      <WeeklyReviewModal
+        open={weeklyReviewOpen}
+        review={weeklyReview}
+        onClose={() => {
+          dismissSundayReviewForToday()
+          setWeeklyReviewOpen(false)
+        }}
       />
     </Screen>
   )

@@ -367,3 +367,28 @@ export async function syncWithSupabase(): Promise<{
     }
   }
 }
+
+/**
+ * Overwrites the remote cloud snapshot with the current local state without merging.
+ * Used after Erase All Data so previously deleted items do not merge back on reload.
+ */
+export async function overwriteCloudSnapshotWithLocal(): Promise<void> {
+  const supabase = getSupabaseClient()
+  if (!supabase) return
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser()
+  const user = userData?.user
+  if (userErr || !user) return
+
+  const local = await buildLocalSnapshot()
+  await supabase.from('user_snapshots').upsert(
+    {
+      user_id: user.id,
+      email: user.email ?? null,
+      snapshot: local,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  )
+  setLastCloudSyncAt(Date.now())
+}

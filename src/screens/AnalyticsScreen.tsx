@@ -6,6 +6,7 @@ import {
   Film,
   Flame,
   GraduationCap,
+  Sparkles,
   TrendingUp,
   X,
 } from 'lucide-react'
@@ -41,7 +42,9 @@ import {
   getTaskCompletionStats,
   getTotalActionsCount,
 } from '../lib/analytics'
-import { getTodayLocal } from '../lib/streak'
+import { getTodayLocal, getVisitedDates } from '../lib/streak'
+import WeeklyReviewModal from '../components/WeeklyReviewModal'
+import { computeWeeklyReview } from '../lib/weeklyReview'
 
 function getDomainIcon(name: string) {
   const lower = name.toLowerCase()
@@ -67,6 +70,7 @@ export default function AnalyticsScreen() {
 
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
+  const [weeklyReviewOpen, setWeeklyReviewOpen] = useState(false)
 
   useEffect(() => {
     if (!toastMsg) return
@@ -122,6 +126,11 @@ export default function AnalyticsScreen() {
     [streakFreezes, todayStr]
   )
 
+  const weeklyReview = useMemo(
+    () => computeWeeklyReview(habitList, entryList, getVisitedDates(), todayStr),
+    [habitList, entryList, todayStr]
+  )
+
   return (
     <Screen className="px-5 pt-4 pb-28">
       {/* In-app Toast for Notification Test Lab */}
@@ -130,6 +139,36 @@ export default function AnalyticsScreen() {
           {toastMsg}
         </div>
       )}
+
+      {/* Your Week in Review Story Trigger */}
+      <button
+        type="button"
+        onClick={() => setWeeklyReviewOpen(true)}
+        className="mb-4 w-full rounded-[20px] border border-orange/35 bg-gradient-to-r from-[#1A130E] via-[#15151C] to-[#12161E] px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:border-orange/60 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-orange/15 border border-orange/30 flex items-center justify-center shrink-0">
+            <Sparkles size={18} className="text-orange" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold text-text-primary truncate">
+              Your Week in Review
+            </p>
+            <p className="text-[11px] text-text-secondary truncate">
+              {weeklyReview.thisWeekRate}% this week ({weeklyReview.delta >= 0 ? `+${weeklyReview.delta}%` : `${weeklyReview.delta}%`} vs. last week) • Tap for story
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full bg-orange/15 px-2.5 py-1 text-[11px] font-bold text-orange">
+          Open
+        </span>
+      </button>
+
+      <WeeklyReviewModal
+        open={weeklyReviewOpen}
+        review={weeklyReview}
+        onClose={() => setWeeklyReviewOpen(false)}
+      />
 
       {/* 1. Header */}
       <div className="pt-2">
