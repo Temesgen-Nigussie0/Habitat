@@ -485,7 +485,7 @@ export default function TodayScreen() {
           {isNightMode && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top,0px)*-1-4px)] md:fixed md:left-[236px] md:right-0 md:top-0 md:bottom-auto md:h-[225px] md:z-0 overflow-hidden select-none"
+              className="pointer-events-none absolute inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top,0px)*-1-4px)] md:fixed md:left-[236px] md:right-0 md:top-0 md:bottom-auto md:h-[200px] md:z-0 overflow-hidden select-none"
             >
               <img
                 src="/images/night-sky.jpg"
@@ -692,7 +692,7 @@ export default function TodayScreen() {
 
         {/* Progress Card */}
         <div
-          className="rounded-[20px] border p-4"
+          className="relative z-10 rounded-[20px] border p-4"
           style={{ backgroundColor: '#1B1B24', borderColor: '#22222E' }}
         >
           <div className="flex items-start justify-between mb-3">

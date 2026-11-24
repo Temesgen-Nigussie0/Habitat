@@ -251,33 +251,73 @@ export default function ProfileScreen() {
       <div className="px-4">
         {/* Overlapping Avatar + Edit Bio */}
         <div className="-mt-[42px] flex items-end justify-between">
-          <button
-            type="button"
-            aria-label={profile?.avatarUri ? 'Profile Photo Options' : 'Add Profile Photo'}
-            onClick={() => {
-              if (profile?.avatarUri) {
-                setAvatarMenuOpen(true)
-              } else {
-                avatarInputRef.current?.click()
-              }
-            }}
-            className="relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-full border-[2.5px] border-[#FF6A00] bg-[#161618] active:scale-95"
-          >
-            {profile?.avatarUri ? (
-              <img
-                src={profile.avatarUri}
-                alt="Profile Avatar"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center">
-                <Camera className="h-6 w-6 text-[#FF6A00]" />
-                <span className="mt-0.5 text-[10px] font-bold text-[#A1A1AA]">
-                  Add Photo
-                </span>
+          <div className={`relative ${avatarMenuOpen ? 'z-[70]' : 'z-10'}`}>
+            <button
+              type="button"
+              aria-label={profile?.avatarUri ? 'Profile Photo Options' : 'Add Profile Photo'}
+              onClick={() => {
+                if (profile?.avatarUri) {
+                  setAvatarMenuOpen((v) => !v)
+                } else {
+                  avatarInputRef.current?.click()
+                }
+              }}
+              className={`relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-full border-[2.5px] border-[#FF6A00] bg-[#161618] active:scale-95 transition-shadow ${
+                avatarMenuOpen ? 'shadow-[0_0_28px_rgba(255,106,0,0.45)]' : ''
+              }`}
+            >
+              {profile?.avatarUri ? (
+                <img
+                  src={profile.avatarUri}
+                  alt="Profile Avatar"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center">
+                  <Camera className="h-6 w-6 text-[#FF6A00]" />
+                  <span className="mt-0.5 text-[10px] font-bold text-[#A1A1AA]">
+                    Add Photo
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Anchored Menu Beside Profile Picture */}
+            {avatarMenuOpen && (
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 w-[216px] sm:w-[240px] rounded-[20px] border border-[#2C2C36] bg-[#14141A]/95 backdrop-blur-xl p-3 space-y-2 shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8E8E93]">
+                  Profile Photo
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarMenuOpen(false)
+                    avatarInputRef.current?.click()
+                  }}
+                  className="w-full min-h-[40px] rounded-[12px] bg-[#FF6A00] hover:brightness-110 text-[13px] font-bold text-white active:scale-[0.98] transition-all"
+                >
+                  Change Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setAvatarMenuOpen(false)
+                    await upsertUserProfile({ avatarUri: null })
+                  }}
+                  className="w-full min-h-[40px] rounded-[12px] bg-[#FF453A]/15 hover:bg-[#FF453A]/25 text-[13px] font-bold text-[#FF453A] active:scale-[0.98] transition-all"
+                >
+                  Remove Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAvatarMenuOpen(false)}
+                  className="w-full min-h-[38px] rounded-[12px] border border-[#2C2C36] bg-[#0D0D10] hover:bg-[#191922] text-[12px] font-semibold text-[#A1A1AA] active:scale-[0.98] transition-all"
+                >
+                  Cancel
+                </button>
               </div>
             )}
-          </button>
+          </div>
 
           <button
             type="button"
@@ -548,46 +588,13 @@ export default function ProfileScreen() {
         }}
       />
 
-      {/* Profile Photo Options Sheet */}
+      {/* Full-Screen Blur Backdrop for Profile Photo Menu */}
       {avatarMenuOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
-          <div
-            className="fixed inset-0 bg-black/75 backdrop-blur-sm"
-            onClick={() => setAvatarMenuOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-[390px] rounded-[24px] border border-[#2C2C30] bg-[#161618] p-4 space-y-2.5 shadow-2xl">
-            <p className="px-2 pb-1 text-center text-[13px] font-bold text-[#8E8E93]">
-              Profile Photo
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setAvatarMenuOpen(false)
-                avatarInputRef.current?.click()
-              }}
-              className="w-full min-h-[48px] rounded-[14px] bg-[#FF6A00] text-[14px] font-bold text-white active:scale-[0.98]"
-            >
-              Change Profile Photo
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setAvatarMenuOpen(false)
-                await upsertUserProfile({ avatarUri: null })
-              }}
-              className="w-full min-h-[48px] rounded-[14px] bg-[#FF453A]/15 text-[14px] font-bold text-[#FF453A] active:scale-[0.98]"
-            >
-              Remove Profile Photo
-            </button>
-            <button
-              type="button"
-              onClick={() => setAvatarMenuOpen(false)}
-              className="w-full min-h-[46px] rounded-[14px] border border-[#2C2C30] bg-[#0D0D0E] text-[14px] font-semibold text-[#A1A1AA] active:scale-[0.98]"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <div
+          aria-hidden
+          className="fixed inset-0 z-[60] bg-black/65 backdrop-blur-md"
+          onClick={() => setAvatarMenuOpen(false)}
+        />
       )}
 
       {/* Retake Onboarding Confirm Modal */}
